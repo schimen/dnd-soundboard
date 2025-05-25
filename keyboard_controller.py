@@ -113,7 +113,7 @@ def cycle_leds(device):
         device.set_led(led, 0)
         sleep(0.1)
 
-def read_keys(device, writer=None, print_keys=False):
+def read_keys(device):
     for event in device.read_loop():
         if event.type == ecodes.EV_KEY:
             process_keys(device, event)
@@ -125,15 +125,16 @@ def main(args):
         device = get_device_by_name(args.device_name)
 
     if device is None:
-        print('Could not find any matching devices')
+        sys.stderr.write('Could not find any matching devices\n')
         return
     
+    sys.stderr.write(f'Open event file {device.path}: {device.name}\n')
     cycle_leds(device)
     
     try:
         read_keys(device)
     except OSError as e:
-        print(f'Caught OS exception: {e}')
+        sys.stderr.write(f'Caught OS exception: {e}\n')
     finally:
         device.close()
 
@@ -159,4 +160,4 @@ if __name__ == '__main__':
     try:
         main(args)
     except KeyboardInterrupt:
-        pass
+        sys.stderr.write('Terminated program with keyboard interrupt')

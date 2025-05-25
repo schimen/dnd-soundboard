@@ -30,15 +30,15 @@ def play_sound_loop(sound: WaveObject, queue: Queue):
     playback = None
     while True:
         command = queue.get()
-        if command == CommandEnum.PLAY_SOUND.value:
+        if command == CommandEnum.PLAY_SOUND:
             if playback is not None:
                 playback.stop()
             playback = sound.play()
-        elif command == CommandEnum.STOP_SOUND.value:
+        elif command == CommandEnum.STOP_SOUND:
             if playback is not None:
                 playback.stop()
                 playback = None
-        elif command == CommandEnum.EXIT.value:
+        elif command == CommandEnum.EXIT:
             if playback is not None:
                 playback.stop()
             break
@@ -48,15 +48,15 @@ def play_sound_loop(sound: WaveObject, queue: Queue):
 def process_command(command: CommandEnum, args: tuple[str], message_queues: dict[int, Queue]) -> None:
     command_queues: list[Queue] = []
     
-    if command == CommandEnum.PLAY_SOUND.value:
+    if command == CommandEnum.PLAY_SOUND:
         if len(args) < 1:
-            print('Play sound command got no arguments')
+            sys.stderr.write('Play sound command got no arguments\n')
             return
 
         sound_number = int(args[0])
         command_queues.append(message_queues.get(sound_number))
 
-    elif command == CommandEnum.STOP_SOUND.value:
+    elif command == CommandEnum.STOP_SOUND:
         if len(args) > 0:
             # Only stop a single sound
             sound_number = int(args[0])
@@ -103,20 +103,21 @@ def main():
     try:
         while True:
             command, args = receive_command()
-            if command is CommandEnum.EXIT.value:
+            if command is None:
+                continue
+
+            if command is CommandEnum.EXIT:
                 break
-            elif command == CommandEnum.NEW_BANK.value:
+
+            elif command == CommandEnum.NEW_BANK:
                 if len(args) < 1:
-                    print('Bank command got no arguments')
+                    sys.stderr.write('Bank command got no arguments\n')
                     continue
                 bank = int(args[0])
                 exit_threads(queues, threads)
                 sounds = open_sounds(bank_paths.get(bank))
                 queues = open_queues(sounds)
                 threads = open_threads(sounds, queues)
-
-            elif command == CommandEnum.EXIT.value:
-                break 
 
             else:
                 process_command(command, args, queues)
