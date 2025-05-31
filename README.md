@@ -33,3 +33,7 @@ software:
   `sudo python3 keyboard_controller.py --device-name <device-name> > /dev/pts/X`
 - Run the following command from another terminal:
   `cat /dev/pts/Y > python3 play_sounds.py`
+
+There is a preconfigured NixOS image for Raspberry Pi Zero 2 W with the
+soundboard software installed and set up. See [nix](./nix/README.md) for more
+information on this.
