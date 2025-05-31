@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 This python program is used to read input event from the soundboard controller
 and send the respective commands to stdout. This is intended to be run as root,

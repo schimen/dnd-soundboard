@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 This python program is used to read input from stdin and play sounds depending
 on respective commands. It is intended to receive commands from the

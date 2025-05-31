@@ -1,11 +1,10 @@
 { pkgs ? import <nixpkgs> {} }:
+let
+  soundboard_package = pkgs.callPackage ./dnd-soundboard.nix {};
+in
 pkgs.mkShell {
   nativeBuildInputs = with pkgs; [
-    (python3.withPackages(ps: with ps; [
-      evdev
-      pysdl2
-    ]))
-    SDL2
     socat
+    soundboard_package
   ];
 }
