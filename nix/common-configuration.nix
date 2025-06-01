@@ -3,6 +3,9 @@ let
   networkConfig = import ./network-config.nix;
 in
 {
+  imports = [
+    ./dnd-soundboard-service.nix
+  ];
   networking = {
     hostName = "dnd-soundboard";
     firewall.enable = true;

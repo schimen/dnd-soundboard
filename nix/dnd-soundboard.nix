@@ -1,4 +1,4 @@
-{ pkgs, lib, python3Packages }:
+{ pkgs, python3Packages }:
 
 python3Packages.buildPythonApplication rec {
     pname = "dnd-soundboard";
