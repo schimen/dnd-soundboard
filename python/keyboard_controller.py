@@ -5,9 +5,9 @@ and send the respective commands to stdout. This is intended to be run as root,
 and the stdout piped to the stdin of the play_sounds.py program.
 """
 
-import argparse
 import sys
 from time import time, sleep
+from argparse import ArgumentParser
 from evdev import InputDevice, ecodes, list_devices
 from commands import CommandEnum, send_command
 
@@ -140,7 +140,7 @@ def main(args):
         device.close()
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
+    parser = ArgumentParser(
         prog='controller_manager',
         description='Program used to read and control soundboard controller'
     )
@@ -151,7 +151,7 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '--device-name',
-        default='GXT',
+        default='SEMICO GXT 860 Keyboard',
         help='Part of the name of the input event file, will use first file' \
              'with name matching argument. This option is ignored if' \
              'device-file is set.'

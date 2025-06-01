@@ -12,6 +12,7 @@ def send_command(command: CommandEnum, *args: str) -> None:
     for arg in args:
         message += ' ' + str(arg)
     sys.stdout.write(message + '\n')
+    sys.stdout.flush()
 
 def receive_command() -> tuple[CommandEnum, tuple[str]] | None:
     line = sys.stdin.readline().rstrip()

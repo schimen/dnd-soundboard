@@ -10,6 +10,7 @@ import re
 import sys
 from threading import Thread
 from queue import Queue, Full
+from argparse import ArgumentParser
 from sdl2.sdlmixer import Mix_Init, Mix_Quit, Mix_OpenAudio, Mix_CloseAudio, \
     Mix_LoadWAV, Mix_Chunk, Mix_FreeChunk, Mix_AllocateChannels, \
     Mix_PlayChannel, Mix_Pause, Mix_HaltChannel, MIX_INIT_MP3, \
@@ -127,7 +128,7 @@ def exit_threads(queues, threads):
         thread.join()
 
 
-def main():
+def main(args):
     # Open sound interface
     res = Mix_Init(MIX_INIT_MP3)
     if res != MIX_INIT_MP3:
@@ -142,7 +143,7 @@ def main():
 
     # Open each sound and create a queue and a thread for each of them
     bank_paths = {i: os.path.join(os.path.dirname(
-        __file__), 'samples', f'bank_{i}') for i in range(1, 7)}
+        __file__), args.sample_dir, f'bank_{i}') for i in range(1, 7)}
     sounds = open_sounds(bank_paths.get(1))
     queues = open_queues(sounds)
     threads = open_threads(sounds, queues)
@@ -178,4 +179,14 @@ def main():
         return
 
 if __name__ == '__main__':
-    main()
+    parser = ArgumentParser(
+        prog='play_sounds',
+        description='Parse incoming commands and play the corresponding sounds'
+    )
+    parser.add_argument(
+        '--sample-dir',
+        default='samples',
+        help='Directory with samples'
+    )
+    args = parser.parse_args()
+    main(args)
