@@ -1,4 +1,4 @@
-{ lib, modulesPath, pkgs, ...}:
+{ pkgs, ...}:
 let
   networkConfig = import ./network-config.nix;
 in
@@ -63,5 +63,6 @@ in
     usbutils
     vim
     wget
+    alsa-utils
   ];
 }

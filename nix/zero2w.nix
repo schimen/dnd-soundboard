@@ -1,6 +1,6 @@
 { lib, modulesPath, pkgs, ...}:
 let
-  dtOverlays = import ./rpi-zero2-w-overlays.nix;
+  dtOverlays = import ./dt-overlays-zero2w.nix;
   networkConfig = import ./network-config.nix;
 in
 {
@@ -43,9 +43,6 @@ in
       # * See: https://elinux.org/RPi_Configuration
       hdmi_group = 2;
       hdmi_mode = 8;
-
-      # Enable audio
-      dtparam = "audio=on";
     };
   };
 
@@ -59,7 +56,7 @@ in
     firmware = [ pkgs.raspberrypiWirelessFirmware ]; # Keep this to make sure wifi works
     i2c.enable = true;
     deviceTree.filter = "bcm2837-rpi-zero*.dtb";
-    deviceTree.overlays = [ dtOverlays.enable_i2c ];
+    deviceTree.overlays = [ dtOverlays.enable_i2c dtOverlays.enable_audio ];
   };
 
   boot = {
