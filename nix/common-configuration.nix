@@ -38,7 +38,7 @@ in
     isNormalUser = true;
     home = "/home/admin";
     description = "Administrator";
-    extraGroups = ["wheel" "dialout"];
+    extraGroups = ["wheel" "dialout" "input"];
     openssh.authorizedKeys.keys = networkConfig.publicKeys;
   };
 
@@ -48,15 +48,8 @@ in
   };
 
   environment.systemPackages = with pkgs; [
-    # Soundboard dependencies
-    (python3.withPackages(ps: with ps; [
-      evdev
-      pysdl2
-    ]))
-    SDL2
-    socat
-
     # Normal packages
+    alsa-utils
     git
     htop
     killall
@@ -66,6 +59,5 @@ in
     usbutils
     vim
     wget
-    alsa-utils
   ];
 }

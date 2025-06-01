@@ -54,9 +54,8 @@ in
 
     enableRedistributableFirmware = lib.mkForce false;
     firmware = [ pkgs.raspberrypiWirelessFirmware ]; # Keep this to make sure wifi works
-    i2c.enable = true;
     deviceTree.filter = "bcm2837-rpi-zero*.dtb";
-    deviceTree.overlays = [ dtOverlays.enable_i2c dtOverlays.enable_audio ];
+    deviceTree.overlays = [ dtOverlays.googlevoicechat_soundcard ];
   };
 
   boot = {
