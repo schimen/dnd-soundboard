@@ -5,6 +5,7 @@ in
 {
   imports = [
     ./dnd-soundboard-service.nix
+    ./sample-dir-network-disk.nix
   ];
   networking = {
     hostName = "dnd-soundboard";
