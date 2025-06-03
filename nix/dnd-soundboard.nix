@@ -9,6 +9,7 @@ python3Packages.buildPythonApplication rec {
         evdev
         pysdl2
         pkgs.SDL2
+        pkgs.pamixer
     ];
 
     dontUnpack = true;

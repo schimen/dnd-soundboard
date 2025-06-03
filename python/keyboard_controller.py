@@ -5,7 +5,7 @@ and send the respective commands to stdout. This is intended to be run as root,
 and the stdout piped to the stdin of the play_sounds.py program.
 """
 
-import sys
+import sys, os
 from time import time, sleep
 from argparse import ArgumentParser
 from evdev import InputDevice, ecodes, list_devices
@@ -14,7 +14,10 @@ from commands import CommandEnum, send_command
 # Keys that represent each sound
 SOUND_KEYS = {69: 1, 98: 2, 55: 3, 71: 4, 72: 5, 73: 6}
 # Keys that represent the different sound banks
-BANK_KEYS = SOUND_KEYS
+BANK_KEYS = {69: 1, 98: 2, 71: 3, 72: 4}
+# Volume keys
+VOLUME_UP = 55
+VOLUME_DOWN = 73
 # When this key is held, the alternative function for a key is used
 FN_KEY = 74
 # This button sends stop signal
@@ -44,6 +47,14 @@ def process_keys(device, event):
             send_command(CommandEnum.PLAY_SOUND, sound_number)
         if is_release(event) and process_keys.release_mode:
             send_command(CommandEnum.STOP_SOUND, sound_number)
+    
+    # Volume up
+    elif event.code == VOLUME_UP and FN_KEY in device.active_keys():
+        os.system("amixer set Master 10%+")
+    # Volume down
+    elif event.code == VOLUME_DOWN and FN_KEY in device.active_keys():
+        os.system("amixer set Master 10%-")
+
 
     # Bank event
     elif event.code in BANK_KEYS and FN_KEY in device.active_keys():
@@ -68,7 +79,7 @@ def process_keys(device, event):
                 send_command(CommandEnum.EXIT)
                 process_keys.last_shutdown_press = None
                 cycle_leds(device)
-                sys.exit()
+                os.system("sudo shutdown now")
 
     # Change release mode
     elif event.code == STOP_KEY and FN_KEY in device.active_keys():

@@ -55,6 +55,7 @@ in
     htop
     killall
     neofetch
+    pamixer
     pciutils
     screen
     usbutils
