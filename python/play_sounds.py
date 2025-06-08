@@ -13,8 +13,8 @@ from queue import Queue, Full
 from argparse import ArgumentParser
 from sdl2.sdlmixer import Mix_Init, Mix_Quit, Mix_OpenAudio, Mix_CloseAudio, \
     Mix_LoadWAV, Mix_Chunk, Mix_FreeChunk, Mix_AllocateChannels, \
-    Mix_PlayChannel, Mix_Pause, Mix_HaltChannel, MIX_INIT_MP3, \
-    MIX_DEFAULT_FORMAT, Mix_GetError
+    Mix_PlayChannel, Mix_Pause, Mix_HaltChannel, Mix_MasterVolume, \
+    Mix_GetError, MIX_INIT_MP3, MIX_DEFAULT_FORMAT, MIX_MAX_VOLUME
 from commands import CommandEnum, receive_command
 
 
@@ -77,23 +77,37 @@ def process_command(
         message_queues: dict[int, Queue]) -> None:
     command_queues: list[Queue] = []
 
-    if command == CommandEnum.PLAY_SOUND:
-        if len(args) < 1:
-            sys.stderr.write('Play sound command got no arguments\n')
+    # If there is an argument, make sure it is an integer
+    arg_value = None
+    if len(args) > 0:
+        try:
+            arg_value = int(args[0])
+        except ValueError as e:
+            sys.stderr.write(f'Error {e}: Could not convert argument ' + \
+                             f'{args[0]} to int\n')
             return
 
-        sound_number = int(args[0])
-        command_queues.append(message_queues.get(sound_number))
+    if command == CommandEnum.PLAY_SOUND:
+        if arg_value is None:
+            sys.stderr.write('Play sound command got no valid arguments\n')
+        else:
+            command_queues.append(message_queues.get(arg_value))
 
     elif command == CommandEnum.STOP_SOUND:
-        if len(args) > 0:
-            # Only stop a single sound
-            sound_number = int(args[0])
-            command_queues.append(message_queues.get(sound_number))
-        else:
+        if arg_value is None:
             # Stop all sounds
             for queue in message_queues.values():
                 command_queues.append(queue)
+        else:
+            # Only stop a single sound
+            command_queues.append(message_queues.get(arg_value))
+
+    elif command == CommandEnum.VOLUME:
+        if arg_value is None:
+            sys.stderr.write('Volume command got no valid arguments\n')
+        else:
+            volume = int(round(arg_value * (MIX_MAX_VOLUME/100)))
+            Mix_MasterVolume(volume)
 
     for queue in command_queues:
         if queue is None or command is None:
@@ -102,9 +116,6 @@ def process_command(
             queue.put_nowait(command)
         except Full:
             pass
-
-    return command
-
 
 def open_queues(sounds):
     return {i: Queue(10) for i in sounds}
