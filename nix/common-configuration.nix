@@ -1,11 +1,16 @@
 { pkgs, ...}:
 let
   networkConfig = import ./network-config.nix;
+  userName = "soundplayer";
+  userDir = "/home/${userName}";
+  sampleDir = "${userDir}/sampledir";
+  serviceConfig = import ./dnd-soundboard-service.nix userName sampleDir;
+  sambaConfig = import ./sample-dir-network-disk.nix userName sampleDir;
 in
 {
   imports = [
-    ./dnd-soundboard-service.nix
-    ./sample-dir-network-disk.nix
+    serviceConfig
+    sambaConfig
   ];
   networking = {
     hostName = "dnd-soundboard";
@@ -32,13 +37,12 @@ in
     # Use pulseaudio for audio server
     pulseaudio.enable = true;
 
-    getty.autologinUser = "admin";
+    getty.autologinUser = userName;
   };
 
-  users.users.admin = {
+  users.users."${userName}" = {
     isNormalUser = true;
-    home = "/home/admin";
-    description = "Administrator";
+    home = userDir;
     extraGroups = ["wheel" "dialout" "input"];
     openssh.authorizedKeys.keys = networkConfig.publicKeys;
   };
@@ -55,7 +59,6 @@ in
     htop
     killall
     neofetch
-    pamixer
     pciutils
     screen
     usbutils

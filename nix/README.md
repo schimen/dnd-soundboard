@@ -50,7 +50,7 @@ To rebuild the system for a currently running image, the following command can
 be used:
 
 ```sh
-nix run github:serokell/deploy-rs .#zero2w -- --ssh-user admin --hostname <device-ip>
+nix run github:serokell/deploy-rs .#zero2w -- --ssh-user soundplayer --hostname dnd-soundboard.local
 ```
 
 ## Access the device
@@ -65,8 +65,8 @@ ifconfig wlan0
 
 The local net can also be scanned for available units with the [arp-scan](https://github.com/royhills/arp-scan) program.
 
-To access the device, SSH is enabled and it can be accessed with the admin user:
+To access the device, SSH is enabled and it can be accessed with the soundplayer user:
 
 ```sh
-ssh admin@<device-ip>
+ssh soundplayer@<device-ip>
 ```

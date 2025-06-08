@@ -1,11 +1,10 @@
-{ config, pkgs, ... }:
+userName: sampleDir: { config, pkgs, ... }:
 {
   services = {
     # Add Samba so that sample dir is browseable ofver network
     samba = {
       package = pkgs.samba4Full;
       enable = true;
-      securityType = "user";
       openFirewall = true;
       settings = {
         global = {
@@ -19,7 +18,7 @@
           "map to guest" = "bad user";
         };
         "Samples" = {
-          "path" = "/home/admin/samples";
+          "path" = sampleDir;
           "browseable" = "yes";
           "writeable" = "yes";
           "read only" = "no";

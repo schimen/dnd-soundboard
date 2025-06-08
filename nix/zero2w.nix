@@ -2,6 +2,8 @@
 let
   dtOverlays = import ./dt-overlays-zero2w.nix;
   networkConfig = import ./network-config.nix;
+  paSink = "alsa_output.platform-soc_sound.stereo-fallback";
+  paSource = "alsa_output.platform-soc_sound.stereo-fallback.monitor";
 in
 {
   imports = [
@@ -88,12 +90,18 @@ in
     keyMap = "no";
   };
 
-  services = {
-    # NTP time sync.
-    timesyncd.enable = true;
+  # Speed up boot by not waiting for network interfaces to come online
+  systemd.network.wait-online.timeout = 0;
 
-    # Enable blueman
-    blueman.enable = true;   
+  services = {
+    # Set pulseaudio sink
+    pulseaudio.extraConfig = ''
+      load-module module-stream-restore restore_device=false
+      set-default-sink ${paSink}
+      set-default-source ${paSource}
+      set-sink-volume ${paSink} 100%
+      set-source-volume ${paSource} 100%
+    '';
   };
   environment.systemPackages = with pkgs; [
     libraspberrypi
