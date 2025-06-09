@@ -68,6 +68,12 @@ def process_keys(device: InputDevice, event: InputEvent) -> bool:
             bank_number = BANK_KEYS[event.code]
             send_command(CommandEnum.NEW_BANK, bank_number)
 
+            # Set loop mode for new bank
+            if process_keys.release_mode:
+                send_command(CommandEnum.LOOP_ON)
+            else:
+                send_command(CommandEnum.LOOP_OFF)
+
     # Stop event and shutdown event if hold for a longer time
     elif event.code == STOP_KEY and FN_KEY not in device.active_keys():
         new_leds[ecodes.LED_NUML] = 1 if is_active(event) else 0
