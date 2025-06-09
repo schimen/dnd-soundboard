@@ -8,9 +8,11 @@ keyboard_controller.py program.
 import os
 import re
 import sys
+import traceback
 from threading import Thread
 from queue import Queue, Full
 from argparse import ArgumentParser
+import dbus
 from sdl2.sdlmixer import Mix_Init, Mix_Quit, Mix_OpenAudio, Mix_CloseAudio, \
     Mix_LoadWAV, Mix_Chunk, Mix_FreeChunk, Mix_AllocateChannels, \
     Mix_PlayChannel, Mix_Pause, Mix_HaltChannel, Mix_MasterVolume, \
@@ -18,13 +20,27 @@ from sdl2.sdlmixer import Mix_Init, Mix_Quit, Mix_OpenAudio, Mix_CloseAudio, \
 from commands import CommandEnum, receive_command
 
 
+def shut_down_system() -> None:
+    sys_bus = dbus.SystemBus()
+    ck_srv = sys_bus.get_object('org.freedesktop.login1',
+                                '/org/freedesktop/login1')
+    ck_iface = dbus.Interface(ck_srv, 'org.freedesktop.login1.Manager')
+    if not ck_iface.get_dbus_method('CanPowerOff')():
+        sys.stderr.write('Error: User can not use DBus power-off command\n')
+        return
+
+    ck_iface.get_dbus_method('PowerOff')(False)
+
+
 def open_sounds(path: str) -> dict[int, Mix_Chunk]:
     sounds = {}
     if path is None:
         Mix_AllocateChannels(0)
+        sys.stderr.write(f'Got no directory\n')
         return sounds
     elif not os.path.isdir(path):
         Mix_AllocateChannels(0)
+        sys.stderr.write(f'Path {path} is not a directory\n')
         return sounds
 
     for file in os.listdir(path):
@@ -153,8 +169,7 @@ def main(args):
         return
 
     # Open each sound and create a queue and a thread for each of them
-    bank_paths = {i: os.path.join(os.path.dirname(
-        __file__), args.sample_dir, f'bank_{i}') for i in range(1, 7)}
+    bank_paths = {i: os.path.join(args.sample_dir, f'bank_{i}') for i in range(1, 7)}
     sounds = open_sounds(bank_paths.get(1))
     queues = open_queues(sounds)
     threads = open_threads(sounds, queues)
@@ -166,6 +181,7 @@ def main(args):
                 continue
 
             if command is CommandEnum.EXIT:
+                shut_down_system()
                 break
 
             elif command == CommandEnum.NEW_BANK:
@@ -183,6 +199,8 @@ def main(args):
 
     except KeyboardInterrupt:
         pass
+    except Exception:
+        sys.stderr.write(traceback.format_exc() + '\n')
     finally:
         exit_threads(queues, threads)
         Mix_CloseAudio()

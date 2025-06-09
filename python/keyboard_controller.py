@@ -5,7 +5,8 @@ and send the respective commands to stdout. This is intended to be run as root,
 and the stdout piped to the stdin of the play_sounds.py program.
 """
 
-import sys, subprocess
+import sys
+import traceback
 from time import time, sleep
 from argparse import ArgumentParser, Namespace
 from evdev import InputDevice, InputEvent, ecodes, list_devices
@@ -83,7 +84,6 @@ def process_keys(device: InputDevice, event: InputEvent) -> bool:
                 send_command(CommandEnum.EXIT)
                 process_keys.last_shutdown_press = None
                 cycle_leds(device)
-                subprocess.run(['sudo', 'shutdown', 'now'], shell=True)
                 return True
 
     # Change release mode
@@ -189,3 +189,5 @@ if __name__ == '__main__':
         main(args)
     except KeyboardInterrupt:
         sys.stderr.write('Terminated program with keyboard interrupt')
+    except Exception:
+        sys.stderr.write(traceback.format_exc() + '\n')

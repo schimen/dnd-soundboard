@@ -7,6 +7,7 @@ python3Packages.buildPythonApplication rec {
 
     propagatedBuildInputs = with python3Packages; [
         evdev
+        dbus-python
         pysdl2
         pkgs.SDL2
     ];
