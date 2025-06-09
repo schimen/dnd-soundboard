@@ -90,7 +90,12 @@ def process_keys(device: InputDevice, event: InputEvent) -> bool:
     elif event.code == STOP_KEY and FN_KEY in device.active_keys():
         if is_press(event):
             process_keys.release_mode = not process_keys.release_mode
-            new_leds[ecodes.LED_CAPSL] = 1 if process_keys.release_mode else 0
+            if process_keys.release_mode:
+                new_leds[ecodes.LED_CAPSL] = 1
+                send_command(CommandEnum.LOOP_ON)
+            else:
+                new_leds[ecodes.LED_CAPSL] = 0
+                send_command(CommandEnum.LOOP_OFF)
 
     for led, value in new_leds.items():
         device.set_led(led, value)

@@ -63,6 +63,7 @@ def open_sounds(path: str) -> dict[int, Mix_Chunk]:
 
 
 def play_sound_loop(channel: int, sound: Mix_Chunk, queue: Queue):
+    loop_state = 0
     while True:
         command = queue.get()
         if command == CommandEnum.PLAY_SOUND:
@@ -71,7 +72,7 @@ def play_sound_loop(channel: int, sound: Mix_Chunk, queue: Queue):
                     f'Sound {sound} on channel {channel}is not available\n')
                 continue
 
-            res = Mix_PlayChannel(channel, sound, 0)
+            res = Mix_PlayChannel(channel, sound, loop_state)
             if res < 0:
                 sys.stderr.write(
                     f'Could not play sound at channel {channel}: ' +
@@ -79,6 +80,13 @@ def play_sound_loop(channel: int, sound: Mix_Chunk, queue: Queue):
 
         elif command == CommandEnum.STOP_SOUND:
             Mix_Pause(channel)
+
+        elif command == CommandEnum.LOOP_ON:
+            loop_state = -1
+
+        elif command == CommandEnum.LOOP_OFF:
+            loop_state = 0
+
         elif command == CommandEnum.EXIT:
             Mix_HaltChannel(channel)
             break
@@ -124,6 +132,11 @@ def process_command(
         else:
             volume = int(round(arg_value * (MIX_MAX_VOLUME/100)))
             Mix_MasterVolume(volume)
+
+    elif command in (CommandEnum.LOOP_ON, CommandEnum.LOOP_OFF):
+        # Set new loop state in all queues
+        for queue in message_queues.values():
+            command_queues.append(queue)
 
     for queue in command_queues:
         if queue is None or command is None:

@@ -6,6 +6,8 @@ class CommandEnum(StrEnum):
     STOP_SOUND='stop'
     NEW_BANK='bank'
     VOLUME='volume'
+    LOOP_ON='loop'
+    LOOP_OFF='oneshot'
     EXIT='exit'
 
 def send_command(command: CommandEnum, *args: str) -> None:
