@@ -18,7 +18,7 @@ in
       description = "Service that plays sounds when commands are received";
       serviceConfig = {
         Type = "simple";
-        ExecStartPre = "${pkgs.bash}/bin/bash -c 'mkdir -p -m 0777 ${sampleDir}'";
+        ExecStartPre = "${pkgs.bash}/bin/bash -c 'mkdir -p -m 0755 ${sampleDir}'";
         ExecStart = "${soundboard_package}/bin/play_sounds.py --sample-dir ${sampleDir}";
         Restart = "always";
         RestartSec = "10";

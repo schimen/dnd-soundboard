@@ -18,7 +18,7 @@ userName: sampleDir: { config, pkgs, ... }:
           "map to guest" = "bad user";
         };
         "Samples" = {
-          "path" = sampleDir;
+          "path" = "${sampleDir}/";
           "browseable" = "yes";
           "writeable" = "yes";
           "read only" = "no";
