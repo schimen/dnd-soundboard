@@ -50,14 +50,16 @@ To rebuild the system for a currently running image, the following command can
 be used:
 
 ```sh
-nix run github:serokell/deploy-rs .#zero2w -- --ssh-user soundplayer --hostname dnd-soundboard.local
+nix run github:serokell/deploy-rs .#zero2w -- --ssh-user soundplayer --hostname <device-ip>
 ```
 
 ## Access the device
 
 mDNS is enabled on the device via the avahi daemon, and it should show up on
-the local network by pinging `dnd-soundboard.local`. Another way to find the device
-can be to connect the device to a monitor and run the command:
+the local network by pinging `dnd-soundboard.local`. If this hostname shows up,
+it can be used instead of the ip address when accessing the device.
+Another way to find the device can be to connect the device to a monitor and
+run the command:
 
 ```sh
 ifconfig wlan0
@@ -65,8 +67,24 @@ ifconfig wlan0
 
 The local net can also be scanned for available units with the [arp-scan](https://github.com/royhills/arp-scan) program.
 
-To access the device, SSH is enabled and it can be accessed with the soundplayer user:
+To access the device, SSH is enabled and it can be accessed with the
+soundplayer user:
 
 ```sh
 ssh soundplayer@<device-ip>
 ```
+
+## Setting up
+
+Must of the set-up of the device should be done before build, but it is
+possible to manage network connections from the soundplayer user, and the
+password to the Samba server must be set for it to be used.
+
+To set the password of the samba user, run the command:
+
+```sh
+sudo smbpasswd -a soundplayer
+```
+
+To manage wireless networks, the [wpa_cli](https://linux.die.net/man/8/wpa_cli)
+program can be used.
