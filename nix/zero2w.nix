@@ -107,5 +107,6 @@ in
     libraspberrypi
     raspberrypifw
     dtc
+    wpa_supplicant
   ];
 }
