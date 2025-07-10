@@ -46,7 +46,7 @@ def open_sounds(path: str) -> dict[int, Mix_Chunk]:
     for file in os.listdir(path):
         filepath = os.path.join(path, file)
         r = re.compile(r'(\d).*\.wav|mp3')
-        m = r.match(file)
+        m = r.match(file.lower())
         if m:
             sample = m.group(1)
             chunk = Mix_LoadWAV(filepath.encode())
