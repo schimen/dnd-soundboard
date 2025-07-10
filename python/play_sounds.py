@@ -61,6 +61,17 @@ def open_sounds(path: str) -> dict[int, Mix_Chunk]:
         sys.stderr.write(f'Could not open channels\n')
     return sounds
 
+def convert_volume(input_volume: int):
+    # Convert volume so that there are more steps at lower volumes
+    volume = input_volume**2.5/1000
+    output_volume = int(round(volume * (MIX_MAX_VOLUME/100)))
+
+    if output_volume >= MIX_MAX_VOLUME:
+        return MIX_MAX_VOLUME
+    elif output_volume <= 0:
+        return 0
+    else:
+        return output_volume
 
 def play_sound_loop(channel: int, sound: Mix_Chunk, queue: Queue):
     loop_state = 0
@@ -130,8 +141,7 @@ def process_command(
         if arg_value is None:
             sys.stderr.write('Volume command got no valid arguments\n')
         else:
-            volume = int(round(arg_value * (MIX_MAX_VOLUME/100)))
-            Mix_MasterVolume(volume)
+            Mix_MasterVolume(convert_volume(arg_value))
 
     elif command in (CommandEnum.LOOP_ON, CommandEnum.LOOP_OFF):
         # Set new loop state in all queues
