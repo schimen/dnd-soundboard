@@ -14,8 +14,8 @@ python3Packages.buildPythonApplication rec {
 
     dontUnpack = true;
     installPhase = ''
-        install -Dm755 "${../python/play_sounds.py}" "$out/bin/play_sounds.py"
-        install -Dm755 "${../python/keyboard_controller.py}" "$out/bin/keyboard_controller.py"
+        install -Dm755 "${../python/sound_player.py}" "$out/bin/sound_player.py"
+        install -Dm755 "${../python/key_monitor.py}" "$out/bin/key_monitor.py"
         cp "${../python/commands.py}" "$out/bin/commands.py"
     '';
 }

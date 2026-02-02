@@ -85,21 +85,52 @@ board provides a soundcard and speakers to the system.
 
 ## Software
 
-The `python/keyboard_controller.py` program listens to keypresses from the
-keyboard, and sends commands to STDOUT. This program should have access to
-input events from the keyboard (e.g. by running as root).
+The software consists of a program that monitors keyboard input events and
+translates these to soundboard commands. Another program takes these commands
+and plays sounds based on them. These programs are implemented in C++ and are
+located in `apps`.
 
-The `python/play_sounds.py` program listen to STDIN and play sounds
+The `key_monitor` program listens to events from the keyboard and sends
+commands to STDOUT. This program should have access to input events from the
+keyboard (e.g. by running as root).
+
+The `sound_player` program listen to STDIN and play sounds
 corresponding to the commands. SDL2 is used to make sound control efficient.
+
+To build the software, run the following commands:
+
+```sh
+mkdir -p build
+cd build
+cmake ..
+make
+cd ..
+```
 
 These programs should be run with and communicate through systemd services on
 the raspberry pi. For testing, the following command can be used to run the
 software:
 
 ```sh
-sudo python3 python/keyboard_controller.py | python3 python/play_sounds.py
+sudo ./build/key_monitor | ./build/sound_player
 ```
 
 There is a preconfigured NixOS image for Raspberry Pi Zero 2 W with the
 soundboard software installed and set up. See [nix](./nix/README.md) for more
 information on this.
+
+
+### Python
+
+The keyboard monitor and sound player programs are also implemented in python.
+These files are not installed on the soundboard unit, but can be tested with
+the following command:
+
+```sh
+sudo python3 python/key_monitor.py | python3 pyton/sound_player.py
+```
+
+The following python libraries are required for these programs:
+- [evdev](https://pypi.org/project/evdev/)
+- [PySDL2](https://pypi.org/project/PySDL2/)
+- [dbus-python](https://pypi.org/project/dbus-python/)

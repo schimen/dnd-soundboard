@@ -2,7 +2,7 @@
 """
 This python program is used to read input event from the soundboard controller
 and send the respective commands to stdout. This is intended to be run as root,
-and the stdout piped to the stdin of the play_sounds.py program.
+and the stdout piped to the stdin of the sound_player.py program.
 """
 
 import sys
@@ -179,7 +179,7 @@ def main(args: Namespace) -> None:
 
 if __name__ == '__main__':
     parser = ArgumentParser(
-        prog='controller_manager',
+        prog='key_monitor',
         description='Program used to read and control soundboard controller'
     )
     parser.add_argument(

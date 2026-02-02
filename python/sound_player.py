@@ -2,7 +2,7 @@
 """
 This python program is used to read input from stdin and play sounds depending
 on respective commands. It is intended to receive commands from the
-keyboard_controller.py program.
+key_monitor.py program.
 """
 
 import os
@@ -232,7 +232,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = ArgumentParser(
-        prog='play_sounds',
+        prog='sound_player',
         description='Parse incoming commands and play the corresponding sounds'
     )
     parser.add_argument(
