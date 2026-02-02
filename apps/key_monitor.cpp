@@ -1,52 +1,64 @@
 #include <argparse/argparse.hpp>
+#include <cstring>
 #include <fcntl.h>
 #include <filesystem>
 #include <format>
 #include <iostream>
 #include <libevdev/libevdev.h>
+#include <map>
 #include <unistd.h>
 #include <vector>
 
-/**
- * Open all event files and return the first that contains the specified name
- */
-std::filesystem::path get_file_by_name(std::string name) {
+using name_file_map_t = std::map<std::string, std::filesystem::path>;
+
+class EventDevice {
+  public:
+    EventDevice(std::filesystem::path device_path);
+    ~EventDevice();
+    void cycleLeds();
+    std::string getName() { return libevdev_get_name(dev); }
+
+  private:
+    int fd = -1;
     struct libevdev *dev = NULL;
-    int fd, rc;
-    for (const auto &entry :
-         std::filesystem::directory_iterator("/dev/input/")) {
-        auto device_path = entry.path();
-        fd = open(device_path.c_str(), O_RDONLY | O_NONBLOCK);
-        if (fd < 0) {
-            // We should be able to open all files here, warn about this
-            std::cerr << std::format("Could not open file '{}'",
-                                     device_path.string())
-                      << std::endl;
-            continue;
-        }
-        rc = libevdev_new_from_fd(fd, &dev);
-        if (rc < 0) {
-            // Probably not a valid device file, keep searching
-            close(fd);
-            continue;
-        }
-        std::string device_name = libevdev_get_name(dev);
-        libevdev_free(dev);
-        close(fd);
-        if (device_name.contains(name)) {
-            return device_path;
-        }
+};
+
+/**
+ * Open input event device, or throw exception in case of an error
+ */
+EventDevice::EventDevice(std::filesystem::path device_path) {
+    if (!std::filesystem::exists(device_path)) {
+        throw std::invalid_argument(
+            std::format("File '{}' does not exist", device_path.string()));
     }
-    std::cerr << std::format(
-                     "Could not find any input device with the name '{}'", name)
-              << std::endl;
-    return std::filesystem::path();
+    fd = open(device_path.c_str(), O_RDONLY | O_NONBLOCK);
+    if (fd < 0) {
+        throw std::runtime_error(
+            std::format("Could not open file '{}'", device_path.string()));
+    }
+    int rc = libevdev_new_from_fd(fd, &dev);
+    if (rc < 0) {
+        close(fd);
+        fd = -1;
+        throw std::runtime_error(
+            std::format("Error {} when opening event device '{}'",
+                        strerror(errno), device_path.string()));
+    }
+};
+
+EventDevice::~EventDevice() {
+    if (dev != NULL) {
+        libevdev_free(dev);
+    }
+    if (fd >= 0) {
+        close(fd);
+    }
 }
 
 /**
  * Cycle the leds on the keyboard on and off
  */
-void cycle_leds(struct libevdev *dev) {
+void EventDevice::cycleLeds() {
     const std::vector<unsigned int> led_codes = {LED_NUML, LED_CAPSL,
                                                  LED_SCROLLL};
     for (const auto led_code : led_codes) {
@@ -57,6 +69,29 @@ void cycle_leds(struct libevdev *dev) {
         libevdev_kernel_set_led_value(dev, led_code, LIBEVDEV_LED_OFF);
         usleep(100000);
     }
+}
+
+/**
+ * Open all event files and create a map with the device name as key and file
+ * path as value
+ */
+name_file_map_t get_input_files_by_names() {
+    name_file_map_t name_file_map;
+    for (const auto &entry :
+         std::filesystem::directory_iterator("/dev/input/")) {
+        auto device_path = entry.path();
+        if (!device_path.filename().string().contains("event")) {
+            // We are only interested in event input devices
+            continue;
+        }
+        try {
+            auto device = EventDevice(device_path);
+            name_file_map[device.getName()] = device_path;
+        } catch (const std::exception &exc) {
+            std::cerr << exc.what() << std::endl;
+        }
+    }
+    return name_file_map;
 }
 
 int main(int argc, char *argv[]) {
@@ -87,35 +122,30 @@ int main(int argc, char *argv[]) {
     if (program.is_used("--device-file")) {
         device_file = program.get("--device-file");
     } else {
-        device_file = get_file_by_name(program.get("--device-name"));
-    }
-    if (!std::filesystem::exists(device_file)) {
-        std::cerr << std::format("Device file '{}' does not exist",
-                                 device_file.string())
-                  << std::endl;
-        return 1;
+        auto device_name = program.get("--device-name");
+        auto name_files_map = get_input_files_by_names();
+        auto device_file_it = name_files_map.find(device_name);
+        if (device_file_it == name_files_map.end()) {
+            std::cerr << std::format("Could not find device '{}', choose from "
+                                     "the following devices:",
+                                     device_name)
+                      << std::endl;
+            for (auto const &[name, _] : name_files_map) {
+                std::cerr << "  " << name << std::endl;
+            }
+            return 1;
+        }
+        device_file = device_file_it->second;
     }
 
-    struct libevdev *dev = NULL;
-    int fd, rc;
-    fd = open(device_file.c_str(), O_RDONLY | O_NONBLOCK);
-    if (fd < 0) {
-        std::cerr << std::format("Failed to open event file '{}'",
-                                 device_file.string())
+    try {
+        auto device = EventDevice(device_file);
+        std::cout << std::format("Opened input device {} at file '{}'",
+                                 device.getName(), device_file.string())
                   << std::endl;
+        device.cycleLeds();
+    } catch (const std::exception &exc) {
+        std::cerr << exc.what() << std::endl;
     }
-    rc = libevdev_new_from_fd(fd, &dev);
-    if (rc < 0) {
-        std::cerr << std::format("Failed to create event device from file '{}'",
-                                 device_file.string())
-                  << std::endl;
-        return 1;
-    }
-    std::cout << std::format("Opened input device {} at file '{}'",
-                             libevdev_get_name(dev), device_file.string())
-              << std::endl;
-    cycle_leds(dev);
-    libevdev_free(dev);
-    close(fd);
     return 0;
 }
