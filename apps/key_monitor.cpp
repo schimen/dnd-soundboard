@@ -15,12 +15,35 @@ class EventDevice {
   public:
     EventDevice(std::filesystem::path device_path);
     ~EventDevice();
+
+    // Delete copy constructor and copy assignment
+    EventDevice(const EventDevice &) = delete;
+    EventDevice &operator=(const EventDevice &) = delete;
+
+    // Move constructor and move assignment
+    EventDevice(EventDevice &&other);
+    EventDevice &operator=(EventDevice &&other);
+
     void cycleLeds();
     std::string getName() { return libevdev_get_name(dev); }
 
   private:
     int fd = -1;
     struct libevdev *dev = NULL;
+
+    void closeDevice() {
+        if (dev != NULL) {
+            libevdev_free(dev);
+        }
+        if (fd >= 0) {
+            close(fd);
+        }
+    };
+
+    void resetReferences() {
+        fd = -1;
+        dev = NULL;
+    }
 };
 
 /**
@@ -46,13 +69,27 @@ EventDevice::EventDevice(std::filesystem::path device_path) {
     }
 };
 
-EventDevice::~EventDevice() {
-    if (dev != NULL) {
-        libevdev_free(dev);
+EventDevice::~EventDevice() { closeDevice(); }
+
+EventDevice::EventDevice(EventDevice &&other)
+    : fd(other.fd), dev(other.dev) {
+    // Reset references in the old object
+    other.resetReferences();
+}
+
+EventDevice &EventDevice::operator=(EventDevice &&other) {
+    if (this != &other) {
+        // Clean up previous device
+        closeDevice();
+
+        // Take ownership of other object resources
+        fd = other.fd;
+        dev = other.dev;
+
+        // Reset references in the old object
+        other.resetReferences();
     }
-    if (fd >= 0) {
-        close(fd);
-    }
+    return *this;
 }
 
 /**
@@ -77,8 +114,22 @@ void EventDevice::cycleLeds() {
  */
 name_file_map_t get_input_files_by_names() {
     name_file_map_t name_file_map;
-    for (const auto &entry :
-         std::filesystem::directory_iterator("/dev/input/")) {
+
+    // Open /dev/input/ directory
+    std::filesystem::directory_iterator filesystem_it;
+    const std::filesystem::path input_dir{"/dev/input/"};
+    try {
+        filesystem_it = std::filesystem::directory_iterator(input_dir);
+    } catch (const std::filesystem::filesystem_error &exception) {
+        std::cerr
+            << std::format(
+                   "Could not open {} to search for input event files: {}",
+                   input_dir.string(), exception.what())
+            << std::endl;
+        return name_file_map;
+    }
+
+    for (const auto &entry : filesystem_it) {
         auto device_path = entry.path();
         if (!device_path.filename().string().contains("event")) {
             // We are only interested in event input devices
@@ -87,8 +138,8 @@ name_file_map_t get_input_files_by_names() {
         try {
             auto device = EventDevice(device_path);
             name_file_map[device.getName()] = device_path;
-        } catch (const std::exception &exc) {
-            std::cerr << exc.what() << std::endl;
+        } catch (const std::exception &exception) {
+            std::cerr << exception.what() << std::endl;
         }
     }
     return name_file_map;
@@ -117,13 +168,18 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    // Get path to device file
     std::filesystem::path device_file;
     if (program.is_used("--device-file")) {
+        // Use provided device file
         device_file = program.get("--device-file");
     } else {
+        // Find device file by name
         auto device_name = program.get("--device-name");
         auto name_files_map = get_input_files_by_names();
+        if (name_files_map.empty()) {
+            std::cerr << "No input devices found" << std::endl;
+            return 1;
+        }
         auto device_file_it = name_files_map.find(device_name);
         if (device_file_it == name_files_map.end()) {
             std::cerr << std::format("Could not find device '{}', choose from "
