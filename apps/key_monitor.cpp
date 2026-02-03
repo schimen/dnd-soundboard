@@ -1,4 +1,5 @@
 #include <argparse/argparse.hpp>
+#include <chrono>
 #include <cstring>
 #include <fcntl.h>
 #include <filesystem>
@@ -6,10 +7,20 @@
 #include <iostream>
 #include <libevdev/libevdev.h>
 #include <map>
+#include <memory>
 #include <unistd.h>
 #include <vector>
 
 using name_file_map_t = std::map<std::string, std::filesystem::path>;
+
+void process_key(unsigned int code, int value) {
+    std::cout << std::format("Key {} {}", code, value ? "pressed" : "released")
+              << std::endl;
+}
+
+void reset_led_state() {
+    std::cout << "led state changed, resetting to last known state" << std::endl;
+}
 
 class EventDevice {
   public:
@@ -26,10 +37,12 @@ class EventDevice {
 
     void cycleLeds();
     std::string getName() { return libevdev_get_name(dev); }
+    void handleEvent();
 
   private:
     int fd = -1;
     struct libevdev *dev = NULL;
+    std::unique_ptr<struct input_event> event_ptr;
 
     void closeDevice() {
         if (dev != NULL) {
@@ -54,7 +67,7 @@ EventDevice::EventDevice(std::filesystem::path device_path) {
         throw std::invalid_argument(
             std::format("File '{}' does not exist", device_path.string()));
     }
-    fd = open(device_path.c_str(), O_RDONLY | O_NONBLOCK);
+    fd = open(device_path.c_str(), O_RDWR);
     if (fd < 0) {
         throw std::runtime_error(
             std::format("Could not open file '{}'", device_path.string()));
@@ -67,12 +80,14 @@ EventDevice::EventDevice(std::filesystem::path device_path) {
             std::format("Error {} when opening event device '{}'",
                         strerror(errno), device_path.string()));
     }
+
+    event_ptr = std::make_unique<struct input_event>();
 };
 
 EventDevice::~EventDevice() { closeDevice(); }
 
 EventDevice::EventDevice(EventDevice &&other)
-    : fd(other.fd), dev(other.dev) {
+    : fd(other.fd), dev(other.dev), event_ptr(std::move(other.event_ptr)) {
     // Reset references in the old object
     other.resetReferences();
 }
@@ -85,6 +100,7 @@ EventDevice &EventDevice::operator=(EventDevice &&other) {
         // Take ownership of other object resources
         fd = other.fd;
         dev = other.dev;
+        event_ptr = std::move(other.event_ptr);
 
         // Reset references in the old object
         other.resetReferences();
@@ -105,6 +121,35 @@ void EventDevice::cycleLeds() {
     for (const auto led_code : led_codes) {
         libevdev_kernel_set_led_value(dev, led_code, LIBEVDEV_LED_OFF);
         usleep(100000);
+    }
+}
+
+/**
+ * Blocking wait for the next input event and process it.
+ */
+void EventDevice::handleEvent() {
+    int rc = libevdev_next_event(
+        dev, LIBEVDEV_READ_FLAG_NORMAL | LIBEVDEV_READ_FLAG_BLOCKING,
+        event_ptr.get());
+    if (rc == LIBEVDEV_READ_STATUS_SUCCESS) {
+        // Handle event
+        if (event_ptr->type == EV_KEY) {
+            process_key(event_ptr->code, event_ptr->value);
+        } else if (event_ptr->type == EV_LED) {
+            reset_led_state();
+        }
+    } else if (rc == LIBEVDEV_READ_STATUS_SYNC) {
+        // Synchronize events
+        while (rc == LIBEVDEV_READ_STATUS_SYNC) {
+            rc = libevdev_next_event(dev, LIBEVDEV_READ_FLAG_SYNC,
+                                     event_ptr.get());
+        }
+    } else if (rc == -EAGAIN) {
+        // No events to read
+        return;
+    } else {
+        throw std::runtime_error(
+            std::format("Error handling event: {}", strerror(-rc)));
     }
 }
 
@@ -200,8 +245,12 @@ int main(int argc, char *argv[]) {
                                  device.getName(), device_file.string())
                   << std::endl;
         device.cycleLeds();
+        while (true) {
+            device.handleEvent();
+        }
     } catch (const std::exception &exc) {
         std::cerr << exc.what() << std::endl;
     }
+
     return 0;
 }
