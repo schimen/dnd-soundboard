@@ -6,6 +6,8 @@ pkgs.mkShell {
   nativeBuildInputs = with pkgs; [
     argparse
     clang-tools
+    cmake
+    git
     libevdev
     pkg-config
     sdbus-cpp
