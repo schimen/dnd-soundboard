@@ -1,10 +1,14 @@
+#include <algorithm>
 #include <argparse/argparse.hpp>
+#include <array>
+#include <bitset>
 #include <chrono>
 #include <cstring>
 #include <fcntl.h>
 #include <filesystem>
 #include <format>
 #include <iostream>
+#include <iterator>
 #include <libevdev/libevdev.h>
 #include <map>
 #include <memory>
@@ -12,14 +16,15 @@
 #include <vector>
 
 using name_file_map_t = std::map<std::string, std::filesystem::path>;
+using key_event_t = std::pair<unsigned int, bool>;
 
-void process_key(unsigned int code, int value) {
-    std::cout << std::format("Key {} {}", code, value ? "pressed" : "released")
+constexpr std::array<unsigned int, 3> keyboardLedValues = {LED_NUML, LED_CAPSL,
+                                                           LED_SCROLLL};
+
+void process_key(key_event_t keyEvent) {
+    auto [code, state] = keyEvent;
+    std::cout << std::format("Key {} {}", code, state ? "pressed" : "released")
               << std::endl;
-}
-
-void reset_led_state() {
-    std::cout << "led state changed, resetting to last known state" << std::endl;
 }
 
 class EventDevice {
@@ -37,26 +42,23 @@ class EventDevice {
 
     void cycleLeds();
     std::string getName() { return libevdev_get_name(dev); }
-    void handleEvent();
+    key_event_t getNextKey();
 
   private:
     int fd = -1;
     struct libevdev *dev = NULL;
     std::unique_ptr<struct input_event> event_ptr;
+    std::bitset<keyboardLedValues.size()> ledState;
+    key_event_t lastKey{0, false};
 
-    void closeDevice() {
-        if (dev != NULL) {
-            libevdev_free(dev);
-        }
-        if (fd >= 0) {
-            close(fd);
-        }
-    };
+    void closeDevice();
 
     void resetReferences() {
         fd = -1;
         dev = NULL;
     }
+
+    void setLed(size_t ledno, bool state);
 };
 
 /**
@@ -112,45 +114,88 @@ EventDevice &EventDevice::operator=(EventDevice &&other) {
  * Cycle the leds on the keyboard on and off
  */
 void EventDevice::cycleLeds() {
-    const std::vector<unsigned int> led_codes = {LED_NUML, LED_CAPSL,
-                                                 LED_SCROLLL};
-    for (const auto led_code : led_codes) {
-        libevdev_kernel_set_led_value(dev, led_code, LIBEVDEV_LED_ON);
+    for (unsigned int i = 0; i < keyboardLedValues.size(); i++) {
+        setLed(i, true);
         usleep(100000);
     }
-    for (const auto led_code : led_codes) {
-        libevdev_kernel_set_led_value(dev, led_code, LIBEVDEV_LED_OFF);
+    for (unsigned int i = 0; i < keyboardLedValues.size(); i++) {
+        setLed(i, false);
         usleep(100000);
     }
 }
 
 /**
- * Blocking wait for the next input event and process it.
+ * Blocking wait for the next input event and return it
  */
-void EventDevice::handleEvent() {
-    int rc = libevdev_next_event(
-        dev, LIBEVDEV_READ_FLAG_NORMAL | LIBEVDEV_READ_FLAG_BLOCKING,
-        event_ptr.get());
-    if (rc == LIBEVDEV_READ_STATUS_SUCCESS) {
-        // Handle event
-        if (event_ptr->type == EV_KEY) {
-            process_key(event_ptr->code, event_ptr->value);
-        } else if (event_ptr->type == EV_LED) {
-            reset_led_state();
+key_event_t EventDevice::getNextKey() {
+    int rc;
+    do {
+        rc = libevdev_next_event(
+            dev, LIBEVDEV_READ_FLAG_NORMAL | LIBEVDEV_READ_FLAG_BLOCKING,
+            event_ptr.get());
+        if (rc == LIBEVDEV_READ_STATUS_SYNC) {
+            // Synchronize events
+            while (rc == LIBEVDEV_READ_STATUS_SYNC) {
+                rc = libevdev_next_event(dev, LIBEVDEV_READ_FLAG_SYNC,
+                                         event_ptr.get());
+            }
+        } else if (rc == LIBEVDEV_READ_STATUS_SUCCESS) {
+            if (event_ptr->type == EV_KEY) {
+                key_event_t keyEvent = {event_ptr->code, event_ptr->value != 0};
+                if (lastKey == keyEvent) {
+                    // Ignore if this event was the same as the previous
+                    continue;
+                }
+                lastKey = keyEvent;
+                return keyEvent;
+            } else if (event_ptr->type == EV_LED) {
+                // We have a led event. If the led is tracked and not of the
+                // state we expect, set it to the expected value.
+                size_t ledno = std::distance(
+                    keyboardLedValues.begin(),
+                    std::find(keyboardLedValues.begin(),
+                              keyboardLedValues.end(), event_ptr->code));
+                if (ledno >= keyboardLedValues.size()) {
+                    continue;
+                }
+                bool expectedState = ledState[ledno];
+                bool currentState = event_ptr->value != 0;
+                if (currentState == expectedState) {
+                    continue;
+                }
+                setLed(ledno, expectedState);
+            }
         }
-    } else if (rc == LIBEVDEV_READ_STATUS_SYNC) {
-        // Synchronize events
-        while (rc == LIBEVDEV_READ_STATUS_SYNC) {
-            rc = libevdev_next_event(dev, LIBEVDEV_READ_FLAG_SYNC,
-                                     event_ptr.get());
-        }
-    } else if (rc == -EAGAIN) {
-        // No events to read
-        return;
-    } else {
-        throw std::runtime_error(
-            std::format("Error handling event: {}", strerror(-rc)));
+    } while (rc == LIBEVDEV_READ_STATUS_SYNC ||
+             rc == LIBEVDEV_READ_STATUS_SUCCESS || rc == -EAGAIN);
+
+    // If the while loop exits, we got an error that we could not handle
+    throw std::runtime_error(
+        std::format("Failed to handle events: {}", strerror(-rc)));
+}
+
+/**
+ * Free evdev memory and close the input event file
+ */
+void EventDevice::closeDevice() {
+    if (dev != NULL) {
+        libevdev_free(dev);
     }
+    if (fd >= 0) {
+        close(fd);
+    }
+};
+
+/**
+ * Set the led value on the keyboard and save the new expected led value
+ */
+void EventDevice::setLed(size_t ledno, bool state) {
+    if (ledno >= keyboardLedValues.size()) {
+        return;
+    }
+    ledState[ledno] = state;
+    libevdev_kernel_set_led_value(dev, keyboardLedValues[ledno],
+                                  state ? LIBEVDEV_LED_ON : LIBEVDEV_LED_OFF);
 }
 
 /**
@@ -246,7 +291,8 @@ int main(int argc, char *argv[]) {
                   << std::endl;
         device.cycleLeds();
         while (true) {
-            device.handleEvent();
+            auto key_event = device.getNextKey();
+            process_key(key_event);
         }
     } catch (const std::exception &exc) {
         std::cerr << exc.what() << std::endl;
