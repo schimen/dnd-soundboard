@@ -2,7 +2,6 @@
 #include <argparse/argparse.hpp>
 #include <array>
 #include <bitset>
-#include <chrono>
 #include <cstring>
 #include <fcntl.h>
 #include <filesystem>
@@ -13,7 +12,6 @@
 #include <map>
 #include <memory>
 #include <unistd.h>
-#include <vector>
 
 using name_file_map_t = std::map<std::string, std::filesystem::path>;
 using key_event_t = std::pair<unsigned int, bool>;
