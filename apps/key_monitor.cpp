@@ -10,7 +10,6 @@
 #include <iterator>
 #include <libevdev/libevdev.h>
 #include <map>
-#include <memory>
 #include <unistd.h>
 
 using name_file_map_t = std::map<std::string, std::filesystem::path>;
@@ -45,17 +44,17 @@ class EventDevice {
   private:
     int fd = -1;
     struct libevdev *dev = NULL;
-    std::unique_ptr<struct input_event> event_ptr;
+    unsigned int readFlag =
+        LIBEVDEV_READ_FLAG_NORMAL | LIBEVDEV_READ_FLAG_BLOCKING;
     std::bitset<keyboardLedValues.size()> ledState;
     key_event_t lastKey{0, false};
 
     void closeDevice();
-
+    void handleLedEvent(unsigned int code, bool value);
     void resetReferences() {
         fd = -1;
         dev = NULL;
     }
-
     void setLed(size_t ledno, bool state);
 };
 
@@ -80,14 +79,12 @@ EventDevice::EventDevice(std::filesystem::path device_path) {
             std::format("Error {} when opening event device '{}'",
                         strerror(errno), device_path.string()));
     }
-
-    event_ptr = std::make_unique<struct input_event>();
 };
 
 EventDevice::~EventDevice() { closeDevice(); }
 
 EventDevice::EventDevice(EventDevice &&other)
-    : fd(other.fd), dev(other.dev), event_ptr(std::move(other.event_ptr)) {
+    : fd(other.fd), dev(other.dev), readFlag(other.readFlag) {
     // Reset references in the old object
     other.resetReferences();
 }
@@ -100,7 +97,7 @@ EventDevice &EventDevice::operator=(EventDevice &&other) {
         // Take ownership of other object resources
         fd = other.fd;
         dev = other.dev;
-        event_ptr = std::move(other.event_ptr);
+        readFlag = other.readFlag;
 
         // Reset references in the old object
         other.resetReferences();
@@ -127,49 +124,46 @@ void EventDevice::cycleLeds() {
  */
 key_event_t EventDevice::getNextKey() {
     int rc;
-    do {
-        rc = libevdev_next_event(
-            dev, LIBEVDEV_READ_FLAG_NORMAL | LIBEVDEV_READ_FLAG_BLOCKING,
-            event_ptr.get());
-        if (rc == LIBEVDEV_READ_STATUS_SYNC) {
-            // Synchronize events
-            while (rc == LIBEVDEV_READ_STATUS_SYNC) {
-                rc = libevdev_next_event(dev, LIBEVDEV_READ_FLAG_SYNC,
-                                         event_ptr.get());
-            }
-        } else if (rc == LIBEVDEV_READ_STATUS_SUCCESS) {
-            if (event_ptr->type == EV_KEY) {
-                key_event_t keyEvent = {event_ptr->code, event_ptr->value != 0};
-                if (lastKey == keyEvent) {
-                    // Ignore if this event was the same as the previous
-                    continue;
-                }
-                lastKey = keyEvent;
-                return keyEvent;
-            } else if (event_ptr->type == EV_LED) {
-                // We have a led event. If the led is tracked and not of the
-                // state we expect, set it to the expected value.
-                size_t ledno = std::distance(
-                    keyboardLedValues.begin(),
-                    std::find(keyboardLedValues.begin(),
-                              keyboardLedValues.end(), event_ptr->code));
-                if (ledno >= keyboardLedValues.size()) {
-                    continue;
-                }
-                bool expectedState = ledState[ledno];
-                bool currentState = event_ptr->value != 0;
-                if (currentState == expectedState) {
-                    continue;
-                }
-                setLed(ledno, expectedState);
-            }
-        }
-    } while (rc == LIBEVDEV_READ_STATUS_SYNC ||
-             rc == LIBEVDEV_READ_STATUS_SUCCESS || rc == -EAGAIN);
+    struct input_event event_struct;
+    key_event_t newKey;
 
-    // If the while loop exits, we got an error that we could not handle
-    throw std::runtime_error(
-        std::format("Failed to handle events: {}", strerror(-rc)));
+    while (true) {
+        // Read event and check the return code
+        rc = libevdev_next_event(dev, readFlag, &event_struct);
+        switch (rc) {
+        case -EAGAIN:
+            // No event, try again
+            continue;
+        case LIBEVDEV_READ_STATUS_SYNC:
+            // We lost a message, synchronize the next time we read
+            readFlag = LIBEVDEV_READ_FLAG_SYNC;
+            break;
+        case LIBEVDEV_READ_STATUS_SUCCESS:
+            // Event read was a success, read normally next time
+            readFlag = LIBEVDEV_READ_FLAG_NORMAL | LIBEVDEV_READ_FLAG_BLOCKING;
+            break;
+        default:
+            // We got a return code that we could not handle
+            throw std::runtime_error(
+                std::format("Failed to handle events: {}", strerror(-rc)));
+        }
+
+        if (event_struct.type == EV_LED) {
+            // Make sure leds behave correct
+            handleLedEvent(event_struct.code, event_struct.value != 0);
+        } else if (event_struct.type == EV_KEY) {
+            newKey = {event_struct.code, event_struct.value != 0};
+            if (lastKey == newKey) {
+                // Ignore if this event was the same as the previous
+                continue;
+            }
+            // We got a valid key, exit the loop
+            break;
+        }
+    }
+    // Save the key and return it
+    lastKey = newKey;
+    return newKey;
 }
 
 /**
@@ -183,6 +177,23 @@ void EventDevice::closeDevice() {
         close(fd);
     }
 };
+
+/**
+ * Handle a led event. If the led is tracked and not of the state we expect, set
+ * it to the expected value
+ */
+void EventDevice::handleLedEvent(unsigned int code, bool value) {
+    size_t ledno = std::distance(
+        keyboardLedValues.begin(),
+        std::find(keyboardLedValues.begin(), keyboardLedValues.end(), code));
+    if (ledno >= keyboardLedValues.size()) {
+        return;
+    }
+    bool expectedState = ledState[ledno];
+    if (value != expectedState) {
+        setLed(ledno, expectedState);
+    }
+}
 
 /**
  * Set the led value on the keyboard and save the new expected led value
