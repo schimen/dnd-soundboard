@@ -104,7 +104,6 @@ mkdir -p build
 cd build
 cmake ..
 make
-cd ..
 ```
 
 These programs should be run with and communicate through systemd services on
@@ -112,7 +111,7 @@ the raspberry pi. For testing, the following command can be used to run the
 software:
 
 ```sh
-sudo ./build/key_monitor | ./build/sound_player
+sudo ./apps/key_monitor | ./apps/sound_player
 ```
 
 There is a preconfigured NixOS image for Raspberry Pi Zero 2 W with the

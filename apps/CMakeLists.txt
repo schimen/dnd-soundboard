@@ -1,5 +1,5 @@
 # Key monitor
-add_executable(key_monitor key_monitor.cpp)
+add_executable(key_monitor key_monitor.cpp key_monitor.h)
 target_include_directories(key_monitor PRIVATE ${LIBEVDEV_INCLUDE_DIRS})
 target_link_libraries(key_monitor PRIVATE ${LIBEVDEV_LIBRARIES})
 install(TARGETS key_monitor DESTINATION bin)
