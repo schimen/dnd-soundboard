@@ -14,3 +14,4 @@ pkg_search_module(LIBEVDEV REQUIRED libevdev)
 include(GNUInstallDirs)
 
 add_subdirectory(apps)
+add_subdirectory(libs)

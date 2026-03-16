@@ -1,15 +1,17 @@
+#pragma once
+
+#include "keystate.h"
 #include <array>
 #include <bitset>
-#include <concepts>
+#include <chrono>
 #include <filesystem>
 #include <libevdev/libevdev.h>
 #include <map>
 #include <set>
 #include <utility>
 
-enum key_state_t { KEY_RELEASED, KEY_PRESSED, KEY_HOLD };
 using key_code_t = decltype(input_event::code);
-using key_event_t = std::pair<key_code_t, key_state_t>;
+using key_event_t = std::pair<key_code_t, KeyState>;
 using name_file_map_t = std::map<std::string, std::filesystem::path>;
 
 // All tracked keyboard leds
@@ -29,6 +31,7 @@ const std::map<key_code_t, int> volumeKeys = {{55, +5}, {73, -5}};
 
 class EventDevice {
   public:
+    // Open input event device, or throw exception in case of an error
     EventDevice(std::filesystem::path device_path);
     ~EventDevice();
 
@@ -40,10 +43,19 @@ class EventDevice {
     EventDevice(EventDevice &&other);
     EventDevice &operator=(EventDevice &&other);
 
+    // Cycle the leds on the keyboard on and off
     void cycleLeds();
+
+    // Get name of input device
     std::string getName() { return libevdev_get_name(dev); }
+
+    // Blocking wait for the next input event and return it
     key_event_t getNextKey();
-    bool keyIsActive(key_code_t code);
+
+    // Check if key code is one of the currently active keys
+    bool keyIsActive(key_code_t code) { return activeKeys.contains(code); };
+
+    // Set the led value on the keyboard and save the new expected led value
     void setLed(size_t ledno, bool state);
 
   private:
@@ -53,25 +65,26 @@ class EventDevice {
         LIBEVDEV_READ_FLAG_NORMAL | LIBEVDEV_READ_FLAG_BLOCKING;
     std::bitset<keyboardLedValues.size()> ledState;
     std::set<key_code_t> activeKeys;
-    key_event_t lastKey{0, KEY_RELEASED};
+    key_event_t lastKey{0, KeyState{}};
 
+    // Free evdev memory and close the input event file
     void closeDevice();
+
+    // If the led is tracked and not of the state we expect, set it to the
+    // expected value
     void handleLedEvent(key_code_t code, bool value);
+
+    // Internal led setting function
+    void setLedValue(size_t ledno, bool state) {
+        ledState[ledno] = state;
+        libevdev_kernel_set_led_value(dev, keyboardLedValues[ledno],
+                                      state ? LIBEVDEV_LED_ON
+                                            : LIBEVDEV_LED_OFF);
+    }
+
+    // Reset all references to the device
     void resetReferences() {
         fd = -1;
         dev = NULL;
     }
 };
-
-// Functions to check the state of a key event
-inline bool isReleased(key_state_t state) { return state == KEY_RELEASED; };
-inline bool isPressed(key_state_t state) { return state == KEY_PRESSED; };
-inline bool isHeld(key_state_t state) { return state == KEY_HOLD; };
-inline bool isActive(key_state_t state) {
-    return isPressed(state) || isHeld(state);
-};
-
-key_state_t getKeyState(std::integral auto value);
-int changeVolume(key_code_t code);
-void process_key(EventDevice &device, key_event_t keyEvent);
-name_file_map_t get_input_files_by_names();

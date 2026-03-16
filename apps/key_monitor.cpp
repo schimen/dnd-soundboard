@@ -1,249 +1,96 @@
-#include "key_monitor.h"
-#include <algorithm>
+#include "event_device.h"
+#include "keystate.h"
 #include <argparse/argparse.hpp>
-#include <bitset>
 #include <chrono>
-#include <cstring>
-#include <fcntl.h>
 #include <filesystem>
 #include <format>
 #include <iostream>
 #include <map>
-#include <thread>
 
-/**
- * Open input event device, or throw exception in case of an error
- */
-EventDevice::EventDevice(std::filesystem::path device_path) {
-    if (!std::filesystem::exists(device_path)) {
-        throw std::invalid_argument(
-            std::format("File '{}' does not exist", device_path.string()));
-    }
-    fd = open(device_path.c_str(), O_RDWR);
-    if (fd < 0) {
-        throw std::runtime_error(
-            std::format("Could not open file '{}'", device_path.string()));
-    }
-    int rc = libevdev_new_from_fd(fd, &dev);
-    if (rc < 0) {
-        close(fd);
-        fd = -1;
-        throw std::runtime_error(
-            std::format("Error {} when opening event device '{}'",
-                        strerror(errno), device_path.string()));
-    }
-};
-
-EventDevice::~EventDevice() { closeDevice(); }
-
-EventDevice::EventDevice(EventDevice &&other)
-    : fd(other.fd), dev(other.dev), readFlag(other.readFlag) {
-    // Reset references in the old object
-    other.resetReferences();
-}
-
-EventDevice &EventDevice::operator=(EventDevice &&other) {
-    if (this != &other) {
-        // Clean up previous device
-        closeDevice();
-
-        // Take ownership of other object resources
-        fd = other.fd;
-        dev = other.dev;
-        readFlag = other.readFlag;
-
-        // Reset references in the old object
-        other.resetReferences();
-    }
-    return *this;
-}
-
-/**
- * Cycle the leds on the keyboard on and off
- */
-void EventDevice::cycleLeds() {
-    constexpr auto ledPause = std::chrono::milliseconds(100);
-    for (unsigned int i = 0; i < ledState.size(); i++) {
-        setLed(i, true);
-        std::this_thread::sleep_for(ledPause);
-    }
-    for (unsigned int i = 0; i < ledState.size(); i++) {
-        setLed(i, false);
-        std::this_thread::sleep_for(ledPause);
+void soundEvent(KeyState state, int sound_number) {
+    if (state.isPressed()) {
+        std::cout << std::format("Play sound {}", sound_number) << std::endl;
+    } else if (state.isReleased()) {
+        std::cout << std::format("Stop sound {}", sound_number) << std::endl;
     }
 }
 
-/**
- * Blocking wait for the next input event and return it
- */
-key_event_t EventDevice::getNextKey() {
-    int rc;
-    struct input_event event_struct;
-    key_event_t newKey;
-
-    while (true) {
-        // Read event and check the return code
-        rc = libevdev_next_event(dev, readFlag, &event_struct);
-        switch (rc) {
-        case -EAGAIN:
-            // No event, try again
-            continue;
-        case LIBEVDEV_READ_STATUS_SYNC:
-            // We lost a message, synchronize the next time we read
-            readFlag = LIBEVDEV_READ_FLAG_SYNC;
-            break;
-        case LIBEVDEV_READ_STATUS_SUCCESS:
-            // Event read was a success, read normally next time
-            readFlag = LIBEVDEV_READ_FLAG_NORMAL | LIBEVDEV_READ_FLAG_BLOCKING;
-            break;
-        default:
-            // We got a return code that we could not handle
-            throw std::runtime_error(
-                std::format("Failed to handle events: {}", strerror(-rc)));
-        }
-
-        if (event_struct.type == EV_LED) {
-            // Make sure leds behave correct
-            handleLedEvent(event_struct.code, event_struct.value != 0);
-        } else if (event_struct.type == EV_KEY) {
-            auto code = event_struct.code;
-            auto state = getKeyState(event_struct.value);
-            newKey = {code, state};
-            if (lastKey == newKey) {
-                // Ignore if this event was the same as the previous
-                continue;
-            }
-            // We got a valid key, save it and exit loop
-            lastKey = newKey;
-            if (isActive(state)) {
-                activeKeys.insert(code);
-            } else if (activeKeys.contains(code)) {
-                activeKeys.erase(code);
-            }
-            break;
-        }
-    }
-    return newKey;
-}
-
-/**
- * Check if key code is in list of currently active keys
- */
-bool EventDevice::keyIsActive(key_code_t code) {
-    auto activeKeyIt = std::find(activeKeys.begin(), activeKeys.end(), code);
-    return activeKeyIt != activeKeys.end();
-}
-
-/**
- * Free evdev memory and close the input event file
- */
-void EventDevice::closeDevice() {
-    if (dev != NULL) {
-        libevdev_free(dev);
-    }
-    if (fd >= 0) {
-        close(fd);
-    }
-};
-
-/**
- * Handle a led event. If the led is tracked and not of the state we expect, set
- * it to the expected value
- */
-void EventDevice::handleLedEvent(key_code_t code, bool value) {
-    size_t ledno = std::distance(
-        keyboardLedValues.begin(),
-        std::find(keyboardLedValues.begin(), keyboardLedValues.end(), code));
-    if (ledno >= keyboardLedValues.size()) {
-        return;
-    }
-    bool expectedState = ledState[ledno];
-    if (value != expectedState) {
-        setLed(ledno, expectedState);
-    }
-}
-
-/**
- * Set the led value on the keyboard and save the new expected led value
- */
-void EventDevice::setLed(size_t ledno, bool state) {
-    if (ledno >= ledState.size())
-        return;
-    ledState[ledno] = state;
-    libevdev_kernel_set_led_value(dev, keyboardLedValues[ledno],
-                                  state ? LIBEVDEV_LED_ON : LIBEVDEV_LED_OFF);
-}
-
-/**
- * Convert the value of a input event to a key state
- */
-key_state_t getKeyState(std::integral auto value) {
-    switch (value) {
-    case 1:
-        return KEY_PRESSED;
-    case 2:
-        return KEY_HOLD;
-    default:
-        return KEY_RELEASED;
-    }
-};
-
-/**
- * Take key that changes volume and return new volume level
- */
-int changeVolume(key_code_t code) {
+void volumeEvent(int step) {
     static int volume = 50;
-    if (!volumeKeys.contains(code)) {
-        return volume;
-    }
-    auto volumeChange = volumeKeys.at(code);
-    volume += volumeChange;
+    volume += step;
     if (volume < 0)
         volume = 0;
     if (volume > 100)
         volume = 100;
-    return volume;
+    std::cout << std::format("Volume is now {}", volume) << std::endl;
+}
+
+void bankEvent(int bankNumber) {
+    std::cout << std::format("Bank {} selected", bankNumber) << std::endl;
+}
+
+void stopEvent(KeyState state, bool *exitSignal) {
+    // Amount of time the stop key must be held to trigger a shutdown event
+    constexpr auto shutdownHoldTime = std::chrono::seconds(3);
+    // Static variable that saves previous time the stop key was pressed
+    static auto lastStopPress = std::chrono::steady_clock::time_point{};
+
+    if (state.isPressed()) {
+        lastStopPress = std::chrono::steady_clock::now();
+        std::cout << "Stop event" << std::endl;
+    } else if (state.isHeld()) {
+        // Shutdown event if stop key was held for long enough
+        auto holdDuration = std::chrono::steady_clock::now() - lastStopPress;
+        if (holdDuration > shutdownHoldTime &&
+            lastStopPress != std::chrono::steady_clock::time_point{}) {
+            std::cout << "Shutdown event" << std::endl;
+            lastStopPress = std::chrono::steady_clock::time_point{};
+            *exitSignal = true;
+        }
+    } else if (state.isReleased()) {
+        lastStopPress = std::chrono::steady_clock::time_point{};
+    }
+}
+
+void changeReleaseMode(EventDevice &device) {
+    static bool releaseMode = false;
+    releaseMode = !releaseMode;
+    if (releaseMode) {
+        device.setLed(1, true);
+        std::cout << "Release mode on" << std::endl;
+    } else {
+        device.setLed(1, false);
+        std::cout << "Release mode off" << std::endl;
+    }
 }
 
 /**
  * Handle a key event
  */
-void process_key(EventDevice &device, key_event_t keyEvent) {
-    // Amount of time the stop key must be held to trigger a shutdown event
-    // constexpr auto shutdownHoldTime = std::chrono::seconds(3);
-
+void process_key(EventDevice &device, bool *exitSignal, key_event_t keyEvent) {
     auto [code, state] = keyEvent;
-    std::map<size_t, bool> ledEvents;
 
+    // Led 0 for normal keys, led 2 for fn key
     if (code == fnKey) {
-        ledEvents[2] = isActive(state);
+        device.setLed(2, state.isActive());
+    } else {
+        device.setLed(0, state.isActive());
     }
 
+    // Check if the key matches any of our events and trigger them
     if (soundKeys.contains(code) && !device.keyIsActive(fnKey)) {
-        // Sound event
-        std::cout << std::format("Sound {} {}", soundKeys.at(code),
-                                 isActive(state) ? "active" : "released")
-                  << std::endl;
-    } else if (volumeKeys.contains(code) && device.keyIsActive(fnKey)) {
-        // Volume change
-        ledEvents[0] = isActive(state);
-        if (isPressed(state)) {
-            int volume = changeVolume(code);
-            std::cout << std::format("Volume is now {}", volume) << std::endl;
-        }
-    } else if (bankKeys.contains(code) && device.keyIsActive(fnKey)) {
-        // Bank event
-        ledEvents[0] = isActive(state);
-        if (isPressed(state)) {
-            auto bankNumber = bankKeys.at(code);
-            std::cout << std::format("Bank {} selected", bankNumber)
-                      << std::endl;
-        }
-    }
-
-    // Set all new led states
-    for (const auto &[ledno, state] : ledEvents) {
-        device.setLed(ledno, state);
+        soundEvent(state, soundKeys.at(code));
+    } else if (volumeKeys.contains(code) && device.keyIsActive(fnKey) &&
+               state.isActive()) {
+        volumeEvent(volumeKeys.at(code));
+    } else if (bankKeys.contains(code) && device.keyIsActive(fnKey) &&
+               state.isPressed()) {
+        bankEvent(bankKeys.at(code));
+    } else if (code == stopKey && !device.keyIsActive(fnKey)) {
+        stopEvent(state, exitSignal);
+    } else if (code == stopKey && device.keyIsActive(fnKey) &&
+               state.isPressed()) {
+        changeReleaseMode(device);
     }
 }
 
@@ -339,10 +186,12 @@ int main(int argc, char *argv[]) {
                                  device.getName(), device_file.string())
                   << std::endl;
         device.cycleLeds();
-        while (true) {
+        bool exitSignal = false;
+        while (!exitSignal) {
             auto key_event = device.getNextKey();
-            process_key(device, key_event);
+            process_key(device, &exitSignal, key_event);
         }
+        device.cycleLeds();
     } catch (const std::exception &exc) {
         std::cerr << exc.what() << std::endl;
     }
