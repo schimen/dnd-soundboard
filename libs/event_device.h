@@ -1,6 +1,6 @@
 #pragma once
 
-#include "keystate.h"
+#include "keystate.hpp"
 #include <array>
 #include <bitset>
 #include <chrono>

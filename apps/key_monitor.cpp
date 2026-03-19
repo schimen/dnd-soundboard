@@ -1,5 +1,6 @@
+#include "commands.h"
 #include "event_device.h"
-#include "keystate.h"
+#include "keystate.hpp"
 #include <argparse/argparse.hpp>
 #include <chrono>
 #include <filesystem>
@@ -9,9 +10,9 @@
 
 void soundEvent(KeyState state, int sound_number) {
     if (state.isPressed()) {
-        std::cout << std::format("Play sound {}", sound_number) << std::endl;
+        send_command(Command(CommandType::PLAY_SOUND, sound_number));
     } else if (state.isReleased()) {
-        std::cout << std::format("Stop sound {}", sound_number) << std::endl;
+        send_command(Command(CommandType::STOP_SOUND, sound_number));
     }
 }
 
@@ -22,11 +23,11 @@ void volumeEvent(int step) {
         volume = 0;
     if (volume > 100)
         volume = 100;
-    std::cout << std::format("Volume is now {}", volume) << std::endl;
+    send_command(Command(CommandType::VOLUME, volume));
 }
 
 void bankEvent(int bankNumber) {
-    std::cout << std::format("Bank {} selected", bankNumber) << std::endl;
+    send_command(Command(CommandType::NEW_BANK, bankNumber));
 }
 
 void stopEvent(KeyState state, bool *exitSignal) {
@@ -37,13 +38,13 @@ void stopEvent(KeyState state, bool *exitSignal) {
 
     if (state.isPressed()) {
         lastStopPress = std::chrono::steady_clock::now();
-        std::cout << "Stop event" << std::endl;
+        send_command(Command(CommandType::STOP_SOUND));
     } else if (state.isHeld()) {
         // Shutdown event if stop key was held for long enough
         auto holdDuration = std::chrono::steady_clock::now() - lastStopPress;
         if (holdDuration > shutdownHoldTime &&
             lastStopPress != std::chrono::steady_clock::time_point{}) {
-            std::cout << "Shutdown event" << std::endl;
+            send_command(Command(CommandType::EXIT));
             lastStopPress = std::chrono::steady_clock::time_point{};
             *exitSignal = true;
         }
@@ -57,10 +58,10 @@ void changeReleaseMode(EventDevice &device) {
     releaseMode = !releaseMode;
     if (releaseMode) {
         device.setLed(1, true);
-        std::cout << "Release mode on" << std::endl;
+        send_command(Command(CommandType::LOOP_ON));
     } else {
         device.setLed(1, false);
-        std::cout << "Release mode off" << std::endl;
+        send_command(Command(CommandType::LOOP_OFF));
     }
 }
 
@@ -182,7 +183,7 @@ int main(int argc, char *argv[]) {
 
     try {
         auto device = EventDevice(device_file);
-        std::cout << std::format("Opened input device {} at file '{}'",
+        std::cerr << std::format("Opened input device {} at file '{}'",
                                  device.getName(), device_file.string())
                   << std::endl;
         device.cycleLeds();
