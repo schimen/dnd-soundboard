@@ -3,7 +3,6 @@
 #include <iostream>
 #include <map>
 #include <optional>
-#include <sstream>
 #include <string>
 
 enum class CommandType {
@@ -24,22 +23,20 @@ const std::map<CommandType, std::string_view> commandNames = {
 
 class Command {
   public:
-    Command(CommandType type_, const std::optional<int> arg = {})
-        : type(type_), arg(arg) {};
+    Command(CommandType type, const std::optional<int> arg = {})
+        : type_(type), arg_(arg) {};
 
     // Operator overloading
     operator std::string() const;
+    bool operator==(const Command obj) const {
+        return type_ == obj.type_ && arg_ == obj.arg_;
+    }
+    operator CommandType() const { return type_; }
     friend std::ostream &operator<<(std::ostream &out, const Command obj);
 
   private:
-    CommandType type;
-    std::optional<int> arg;
-};
-
-template <> struct std::formatter<Command> : std::formatter<std::string> {
-    auto format(const Command &obj, std::format_context &ctx) const {
-        return std::format_to(ctx.out(), "{}", std::string(obj));
-    }
+    CommandType type_;
+    std::optional<int> arg_;
 };
 
 void send_command(const Command command);

@@ -9,6 +9,7 @@ find_package(SDL2 REQUIRED CONFIG REQUIRED COMPONENTS SDL2)
 find_package(sdbus-c++ REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(argparse REQUIRED)
+find_package(spdlog REQUIRED)
 pkg_search_module(LIBEVDEV REQUIRED libevdev)
 
 include(GNUInstallDirs)

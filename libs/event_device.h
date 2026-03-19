@@ -12,7 +12,6 @@
 
 using key_code_t = decltype(input_event::code);
 using key_event_t = std::pair<key_code_t, KeyState>;
-using name_file_map_t = std::map<std::string, std::filesystem::path>;
 
 // All tracked keyboard leds
 constexpr std::array<key_code_t, 3> keyboardLedValues = {LED_NUML, LED_CAPSL,

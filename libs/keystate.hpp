@@ -1,11 +1,7 @@
 #pragma once
 
-#include <array>
 #include <concepts>
-#include <format>
-#include <iostream>
 #include <map>
-#include <string>
 #include <string_view>
 
 enum class KeyStateEnum { RELEASED, PRESSED, HELD };
@@ -50,10 +46,4 @@ class KeyState {
 
   private:
     KeyStateEnum state = KeyStateEnum::RELEASED;
-};
-
-template <> struct std::formatter<KeyState> : std::formatter<std::string_view> {
-    auto format(const KeyState &obj, std::format_context &ctx) const {
-        return std::format_to(ctx.out(), "{}", std::string_view(obj));
-    }
 };
