@@ -7,7 +7,6 @@
 #include <format>
 #include <iostream>
 #include <map>
-#include <spdlog/spdlog.h>
 
 enum EventLed { NORMAL_KEY, LOOP_MODE, FN_KEY };
 using name_file_map_t = std::map<std::string, std::filesystem::path>;
@@ -24,7 +23,8 @@ int getNewVolume(int step) {
 
 bool getNewReleaseMode() {
     static bool releaseMode = false;
-    return !releaseMode;
+    releaseMode = !releaseMode;
+    return releaseMode;
 }
 
 bool isShutdownEvent(KeyState state) {
@@ -146,15 +146,16 @@ name_file_map_t get_input_files_by_names() {
 }
 
 void keyMonitorLoop(EventDevice &device) {
-    while (true) {
+    device.cycleLeds();
+    bool exitLoop = false;
+    while (!exitLoop) {
         key_event_t keyEvent;
         try {
             keyEvent = device.getNextKey();
-            spdlog::debug("Got key event: code={}, state={}", keyEvent.first,
-                          std::string_view(keyEvent.second));
         } catch (const std::runtime_error &exc) {
-            spdlog::error("Runtime error occurred while reading key event: {}",
-                          exc.what());
+            std::cerr << std::format("Error while reading key event: {}",
+                                     exc.what())
+                      << std::endl;
             continue;
         }
 
@@ -165,8 +166,6 @@ void keyMonitorLoop(EventDevice &device) {
             continue;
         }
         auto command = *maybeCommand;
-        spdlog::debug("Parsed command: {}", std::string(command));
-        send_command(command);
 
         // Led events for specific commands
         switch (static_cast<CommandType>(command)) {
@@ -184,9 +183,11 @@ void keyMonitorLoop(EventDevice &device) {
             break;
         case CommandType::EXIT:
             device.cycleLeds();
-            spdlog::info("Exiting on shutdown command");
-            return;
+            exitLoop = true;
+            break;
         }
+
+        send_command(command);
     }
 }
 
@@ -205,11 +206,6 @@ int main(int argc, char *argv[]) {
         .help("Part of the name of the input event file, will use first file "
               "with name matching argument. This option is ignored if "
               "device-file is set.");
-    program.add_argument("--log-level")
-        .default_value(std::string{"warning"})
-        .nargs(1)
-        .help("Set the log level (trace, debug, info, warn, error, critical, "
-              "off)");
     try {
         program.parse_args(argc, argv);
     } catch (const std::exception &err) {
@@ -219,8 +215,6 @@ int main(int argc, char *argv[]) {
     }
 
     std::filesystem::path device_file;
-
-    spdlog::set_level(spdlog::level::from_str(program.get("--log-level")));
     if (program.is_used("--device-file")) {
         // Use provided device file
         device_file = program.get("--device-file");
@@ -248,11 +242,10 @@ int main(int argc, char *argv[]) {
     }
 
     auto device = EventDevice(device_file);
-    spdlog::info("Opened input device {} at file '{}'", device.getName(),
-                 device_file.string());
-    device.cycleLeds();
+    std::cerr << std::format("Opened input device {} at file '{}'",
+                             device.getName(), device_file.string())
+              << std::endl;
     keyMonitorLoop(device);
-    device.cycleLeds();
 
     return 0;
 }
