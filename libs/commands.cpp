@@ -1,17 +1,15 @@
 #include "commands.h"
 
 #include <iostream>
-#include <map>
-#include <optional>
 #include <sstream>
 #include <string>
 
 // Operator overloading
 Command::operator std::string() const {
     std::stringstream ss;
-    ss << commandNames.at(type);
-    if (arg) {
-        ss << " " << *arg;
+    ss << commandNames.at(type_);
+    if (arg_) {
+        ss << " " << *arg_;
     }
     return ss.str();
 }

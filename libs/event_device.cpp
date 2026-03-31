@@ -127,7 +127,7 @@ void EventDevice::handleLedEvent(key_code_t code, bool value) {
     }
     bool expectedState = ledState[ledno];
     if (value != expectedState) {
-        setLed(ledno, expectedState);
+        setLedValue(ledno, expectedState);
     }
 }
 
@@ -137,7 +137,5 @@ void EventDevice::setLed(size_t ledno, bool state) {
     if (ledState[ledno] == state)
         return;
 
-    ledState[ledno] = state;
-    libevdev_kernel_set_led_value(dev, keyboardLedValues[ledno],
-                                  state ? LIBEVDEV_LED_ON : LIBEVDEV_LED_OFF);
+    setLedValue(ledno, state);
 }
