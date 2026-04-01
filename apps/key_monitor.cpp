@@ -168,7 +168,7 @@ void keyMonitorLoop(EventDevice &device) {
         auto command = *maybeCommand;
 
         // Led events for specific commands
-        switch (static_cast<CommandType>(command)) {
+        switch (command.getType()) {
         // No led events for these commands
         case CommandType::PLAY_SOUND:
         case CommandType::STOP_SOUND:

@@ -5,7 +5,7 @@ set (CMAKE_CXX_STANDARD 23)
 add_compile_options(-Wall -Wextra -Wpedantic -Werror)
 
 # Required packages
-find_package(SDL2 REQUIRED CONFIG REQUIRED COMPONENTS SDL2)
+find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3)
 find_package(sdbus-c++ REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(argparse REQUIRED)

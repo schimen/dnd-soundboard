@@ -1,9 +1,13 @@
 #pragma once
 
+#include <array>
+#include <condition_variable>
 #include <iostream>
-#include <map>
+#include <mutex>
 #include <optional>
+#include <queue>
 #include <string>
+#include <string_view>
 
 enum class CommandType {
     PLAY_SOUND,
@@ -15,16 +19,15 @@ enum class CommandType {
     EXIT,
 };
 
-const std::map<CommandType, std::string_view> commandNames = {
-    {CommandType::PLAY_SOUND, "play"}, {CommandType::STOP_SOUND, "stop"},
-    {CommandType::NEW_BANK, "bank"},   {CommandType::VOLUME, "volume"},
-    {CommandType::LOOP_ON, "loop"},    {CommandType::LOOP_OFF, "oneshot"},
-    {CommandType::EXIT, "exit"}};
+constexpr std::array<std::string_view, 7> commandNames = {
+    "play", "stop", "bank", "volume", "loop", "oneshot", "exit"};
 
 class Command {
   public:
     Command(CommandType type, const std::optional<int> arg = {})
         : type_(type), arg_(arg) {};
+    std::optional<int> getArg() const { return arg_; }
+    CommandType getType() const { return type_; }
 
     // Operator overloading
     operator std::string() const;
@@ -39,4 +42,18 @@ class Command {
     std::optional<int> arg_;
 };
 
+class CommandQueue {
+  public:
+    void put(const Command command);
+    Command get();
+    void clear();
+
+  private:
+    std::queue<Command> queue;
+    std::condition_variable queue_condition;
+    std::mutex queue_mutex;
+};
+
 void send_command(const Command command);
+
+std::optional<Command> receive_command();
