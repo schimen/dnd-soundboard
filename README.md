@@ -118,6 +118,13 @@ There is a preconfigured NixOS image for Raspberry Pi Zero 2 W with the
 soundboard software installed and set up. See [nix](./nix/README.md) for more
 information on this.
 
+### Tests
+
+Catch2 is used for unit tests. These tests can be run with the following command from the build folder:
+
+```sh
+make test
+```
 
 ### Python
 

@@ -5,6 +5,7 @@ in
 pkgs.mkShell {
   nativeBuildInputs = with pkgs; [
     argparse
+    catch2_3
     clang-tools
     cmake
     git

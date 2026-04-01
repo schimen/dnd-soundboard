@@ -4,14 +4,18 @@ project(dnd-soundboard)
 set (CMAKE_CXX_STANDARD 23)
 add_compile_options(-Wall -Wextra -Wpedantic -Werror)
 
+enable_testing()
+
 # Required packages
 find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3)
 find_package(sdbus-c++ REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(argparse REQUIRED)
+find_package(Catch2 3 REQUIRED)
 pkg_search_module(LIBEVDEV REQUIRED libevdev)
 
 include(GNUInstallDirs)
 
 add_subdirectory(apps)
 add_subdirectory(libs)
+add_subdirectory(tests)
