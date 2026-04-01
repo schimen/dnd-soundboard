@@ -16,7 +16,7 @@ using queue_map_t = std::map<int, CommandQueue>;
 using thread_map_t = std::map<int, std::thread>;
 
 constexpr int numSounds = 6;
-constexpr int numBanks = 6;
+constexpr int numBanks = 4;
 static_assert(numBanks > 0, "There must be at least one bank");
 
 /**
