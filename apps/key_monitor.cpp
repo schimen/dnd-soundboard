@@ -11,13 +11,18 @@
 enum EventLed { NORMAL_KEY, LOOP_MODE, FN_KEY };
 using name_file_map_t = std::map<std::string, std::filesystem::path>;
 
-int getNewVolume(int step) {
+std::optional<int> getNewVolume(int step) {
     static int volume = 50;
-    volume += step;
-    if (volume < 0)
-        volume = 0;
-    if (volume > 100)
-        volume = 100;
+    int newVolume = volume + step;
+    if (newVolume < 0)
+        newVolume = 0;
+    if (newVolume > 100)
+        newVolume = 100;
+
+    if (newVolume == volume) {
+        return std::nullopt;
+    }
+    volume = newVolume;
     return volume;
 }
 
@@ -82,7 +87,9 @@ std::optional<Command> parse_command(EventDevice &device,
                state.isActive()) {
         // Volume event
         auto newVolume = getNewVolume(volumeKeys.at(code));
-        return Command(CommandType::VOLUME, newVolume);
+        if (newVolume.has_value()) {
+            return Command(CommandType::VOLUME, newVolume.value());
+        }
     } else if (bankKeys.contains(code) && device.keyIsActive(fnKey) &&
                state.isPressed()) {
         // Bank event
@@ -103,7 +110,7 @@ std::optional<Command> parse_command(EventDevice &device,
                                    : CommandType::LOOP_OFF);
     }
     // No event, return empty optional
-    return {};
+    return std::nullopt;
 }
 
 /**
