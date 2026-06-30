@@ -11,25 +11,14 @@
 enum EventLed { NORMAL_KEY, LOOP_MODE, FN_KEY };
 using name_file_map_t = std::map<std::string, std::filesystem::path>;
 
-std::optional<int> getNewVolume(int step) {
-    static int volume = 50;
+int getNewVolume(int volume, int step) {
     int newVolume = volume + step;
     if (newVolume < 0)
         newVolume = 0;
     if (newVolume > 100)
         newVolume = 100;
 
-    if (newVolume == volume) {
-        return std::nullopt;
-    }
-    volume = newVolume;
-    return volume;
-}
-
-bool getNewReleaseMode() {
-    static bool releaseMode = false;
-    releaseMode = !releaseMode;
-    return releaseMode;
+    return newVolume;
 }
 
 bool isShutdownEvent(KeyState state) {
@@ -72,6 +61,9 @@ void handleKeyLeds(EventDevice &device, key_event_t keyEvent) {
  */
 std::optional<Command> parse_command(EventDevice &device,
                                      key_event_t keyEvent) {
+    static bool releaseMode = false;
+    static int volume = 50;
+
     auto [code, state] = keyEvent;
 
     // Check if the key matches any of our events and trigger them
@@ -80,15 +72,16 @@ std::optional<Command> parse_command(EventDevice &device,
         auto sound_number = soundKeys.at(code);
         if (state.isPressed()) {
             return Command(CommandType::PLAY_SOUND, sound_number);
-        } else if (state.isReleased()) {
+        } else if (state.isReleased() && releaseMode) {
             return Command(CommandType::STOP_SOUND, sound_number);
         }
     } else if (volumeKeys.contains(code) && device.keyIsActive(fnKey) &&
                state.isActive()) {
         // Volume event
-        auto newVolume = getNewVolume(volumeKeys.at(code));
-        if (newVolume.has_value()) {
-            return Command(CommandType::VOLUME, newVolume.value());
+        auto newVolume = getNewVolume(volume, volumeKeys.at(code));
+        if (newVolume != volume) {
+            volume = newVolume;
+            return Command(CommandType::VOLUME, volume);
         }
     } else if (bankKeys.contains(code) && device.keyIsActive(fnKey) &&
                state.isPressed()) {
@@ -105,7 +98,7 @@ std::optional<Command> parse_command(EventDevice &device,
     } else if (code == stopKey && device.keyIsActive(fnKey) &&
                state.isPressed()) {
         // Release mode toggle event
-        auto releaseMode = getNewReleaseMode();
+        releaseMode = !releaseMode;
         return Command(releaseMode ? CommandType::LOOP_ON
                                    : CommandType::LOOP_OFF);
     }
