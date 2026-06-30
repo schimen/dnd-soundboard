@@ -1,6 +1,6 @@
 #include "commands.h"
-#include <SDL3/SDL.h>
-#include <SDL3/SDL_main.h>
+#include "sample.h"
+#include <SDL3_mixer/SDL_mixer.h>
 #include <argparse/argparse.hpp>
 #include <filesystem>
 #include <format>
@@ -14,6 +14,8 @@
 using bank_map_t = std::map<int, std::filesystem::path>;
 using queue_map_t = std::map<int, CommandQueue>;
 using thread_map_t = std::map<int, std::thread>;
+using sample_vector_t = std::vector<Sample>;
+using bank_path_vector_t = std::vector<std::filesystem::path>;
 
 constexpr int numSounds = 6;
 constexpr int numBanks = 4;
@@ -60,33 +62,22 @@ bank_map_t readBank(std::filesystem::path bankDir) {
     return bank;
 }
 
-void playSoundLoop(int sampleId, std::filesystem::path soundPath,
-                   CommandQueue *queue) {
-    // Load the sound file
-    SDL_AudioSpec spec;
-    Uint8 *audio_buf;
-    Uint32 audio_len;
-    bool loadSuccess =
-        SDL_LoadWAV(soundPath.string().c_str(), &spec, &audio_buf, &audio_len);
-    if (!loadSuccess) {
-        std::cerr << std::format("Failed to load sound {}: {}",
-                                 soundPath.string(), SDL_GetError())
-                  << std::endl;
-        return;
-    }
-
+void playSoundLoop(Sample *sample, CommandQueue *queue) {
     while (true) {
         auto command = queue->get();
         auto type = command.getType();
-        std::cout << std::format("Sample {} received command: {}", sampleId,
-                                 std::string(command))
-                  << std::endl;
-        if (type == CommandType::EXIT) {
+        if (type == CommandType::PLAY_SOUND) {
+            sample->play();
+        } else if (type == CommandType::STOP_SOUND) {
+            sample->stop();
+        } else if (type == CommandType::LOOP_ON ||
+                   type == CommandType::LOOP_OFF) {
+            sample->setLoopMode(type == CommandType::LOOP_ON);
+        } else if (type == CommandType::EXIT) {
             break;
         }
     }
-
-    SDL_free(audio_buf);
+    sample->closeSample();
 }
 
 void processCommand(const Command command, queue_map_t &queues) {
@@ -99,9 +90,9 @@ void processCommand(const Command command, queue_map_t &queues) {
                       << std::endl;
             return;
         }
-        int sample = *arg;
-        if (queues.contains(sample)) {
-            queues[sample].put(command);
+        int sample_id = *arg;
+        if (queues.contains(sample_id)) {
+            queues[sample_id].put(command);
         }
     } else if (type == CommandType::STOP_SOUND) {
         if (!arg) {
@@ -149,17 +140,32 @@ void openQueues(queue_map_t &queues, const bank_map_t &bank) {
 }
 
 void openThreads(thread_map_t &threads, queue_map_t &queues,
-                 const bank_map_t &bank) {
-    for (const auto &[sample, path] : bank) {
-        if (threads.contains(sample) || !queues.contains(sample)) {
-            std::cerr << std::format("Thread for sample {} already exists or "
-                                     "no queue found, skipping thread creation",
-                                     sample)
+                 const bank_map_t &bank, sample_vector_t &samples) {
+    for (const auto &[sample_id, path] : bank) {
+        if (sample_id < 1 || sample_id > numSounds) {
+            std::cerr << "Sample id " << sample_id << " is out of range"
+                      << std::endl;
+            continue;
+        } else if (threads.contains(sample_id) || !queues.contains(sample_id)) {
+            std::cerr << "Thread for sample " << sample_id
+                      << " already exists or "
+                         "no queue found, skipping thread creation"
                       << std::endl;
             continue;
         }
-        threads[sample] =
-            std::thread(playSoundLoop, sample, path, &queues[sample]);
+
+        CommandQueue *queue = &queues[sample_id];
+        Sample *sample = &samples[sample_id - 1];
+        try {
+            sample->openSample(path);
+        } catch (const std::exception &exc) {
+            std::cerr << std::format(
+                             "Error while opening sound {} from file {}: {}",
+                             sample->getId(), path.string(), exc.what())
+                      << std::endl;
+            continue;
+        }
+        threads[sample_id] = std::thread(playSoundLoop, sample, queue);
     }
 }
 
@@ -176,23 +182,39 @@ void exitThreads(thread_map_t &threads, queue_map_t &queues) {
     threads.clear();
 }
 
-void startSoundPlayer(std::filesystem::path sampleDir) {
-    thread_map_t threads;
-    queue_map_t queues;
+// Create sample object for each sound
+sample_vector_t initSamples(MIX_Mixer *mixer) {
+    sample_vector_t samples;
+    samples.reserve(numSounds);
+    for (const auto sampleId : std::views::iota(1, numSounds + 1)) {
+        samples.emplace_back(sampleId, mixer);
+    }
+    return samples;
+}
 
-    // Create a path for each bank and read the first one
-    std::array<std::filesystem::path, numBanks> bankPaths;
+// Create a path for each bank
+bank_path_vector_t getBankPaths(std::filesystem::path sampleDir) {
+    bank_path_vector_t bankPaths(numBanks);
     for (const auto bankIndex : std::views::iota(0, numBanks)) {
         bankPaths[bankIndex] =
             sampleDir / std::format("bank_{}", bankIndex + 1);
     }
+    return bankPaths;
+}
+
+void startSoundPlayer(std::filesystem::path sampleDir, MIX_Mixer *mixer) {
+    thread_map_t threads;
+    queue_map_t queues;
+    sample_vector_t samples = initSamples(mixer);
+    bank_path_vector_t bankPaths = getBankPaths(sampleDir);
+    bool loopMode = false;
     auto bank = readBank(bankPaths[0]);
 
     // Open a thread and command queue for each sample in the bank
     openQueues(queues, bank);
-    openThreads(threads, queues, bank);
+    openThreads(threads, queues, bank, samples);
 
-    // Listen for stdinput and prin it out for testing
+    // Listen for stdinput and print it out for testing
     std::string input_line;
     while (std::cin) {
         auto maybe_command = receive_command();
@@ -226,8 +248,16 @@ void startSoundPlayer(std::filesystem::path sampleDir) {
             exitThreads(threads, queues);
             bank = readBank(bankPaths[bankIndex]);
             openQueues(queues, bank);
-            openThreads(threads, queues, bank);
+            openThreads(threads, queues, bank, samples);
+            processCommand(loopMode ? Command(CommandType::LOOP_ON)
+                                    : Command(CommandType::LOOP_OFF),
+                           queues);
         } else {
+            if (type == CommandType::LOOP_ON) {
+                loopMode = true;
+            } else if (type == CommandType::LOOP_OFF) {
+                loopMode = false;
+            }
             processCommand(command, queues);
         }
     }
@@ -248,15 +278,31 @@ int main(int argc, char *argv[]) {
         std::cerr << program;
         return 1;
     }
-
-    // Init SDL
-    if (!SDL_Init(SDL_INIT_AUDIO)) {
-        std::cerr << "Couldn't initialize SDL: " << SDL_GetError() << std::endl;
+    if (!MIX_Init()) {
+        std::cerr << "Couldn't init SDL_mixer library: " << SDL_GetError()
+                  << std::endl;
         return 1;
     }
 
     std::filesystem::path sampleDir = program.get("--sample-dir");
-    startSoundPlayer(sampleDir);
+
+    MIX_Mixer *mixer =
+        MIX_CreateMixerDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, NULL);
+    if (!mixer) {
+        std::cerr << std::format("Couldn't create mixer device: {}",
+                                 SDL_GetError())
+                  << std::endl;
+        return 1;
+    }
+
+    try {
+        startSoundPlayer(sampleDir, mixer);
+    } catch (const std::runtime_error &exc) {
+        std::cerr << std::format("Error while running sound player: {}",
+                                 exc.what())
+                  << std::endl;
+    }
+    MIX_Quit();
 
     return 0;
 }

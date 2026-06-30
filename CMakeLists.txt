@@ -8,6 +8,7 @@ enable_testing()
 
 # Required packages
 find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3)
+find_package(SDL3_mixer REQUIRED)
 find_package(sdbus-c++ REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(argparse REQUIRED)

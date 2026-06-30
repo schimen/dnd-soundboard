@@ -13,5 +13,6 @@ pkgs.mkShell {
     pkg-config
     sdbus-cpp
     sdl3
+    sdl3-mixer
   ];
 }
