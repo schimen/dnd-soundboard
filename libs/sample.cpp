@@ -3,6 +3,7 @@
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_properties.h>
 #include <SDL3_mixer/SDL_mixer.h>
+#include <cmath>
 #include <filesystem>
 #include <iostream>
 
@@ -19,6 +20,7 @@ Sample::Sample(int id, MIX_Mixer *mixer) : id(id), mixer(mixer) {
             std::format("Couldn't create play options: {}", SDL_GetError()));
     }
     setLoopMode(loop);
+    setVolume(50); // Default volume to 50%
 }
 
 Sample::~Sample() {
@@ -87,4 +89,22 @@ void Sample::setLoopMode(bool loop) {
         return;
     }
     SDL_SetNumberProperty(options, MIX_PROP_PLAY_LOOPS_NUMBER, loop ? -1 : 0);
+}
+
+void Sample::setVolume(int volume) {
+    if (track == nullptr) {
+        std::cerr
+            << std::format(
+                   "Cannot set volume for sound {}: track not initialized", id)
+            << std::endl;
+        return;
+    }
+    // Convert volume so that there are more steps at lower volumes
+    float gain = std::pow(static_cast<float>(volume), 2.5f) / 100000.0f;
+    if (gain < 0) {
+        gain = 0;
+    } else if (gain > 1) {
+        gain = 1;
+    }
+    MIX_SetTrackGain(track, gain);
 }

@@ -12,6 +12,7 @@ class Sample {
     void play();
     void stop();
     void setLoopMode(bool loop);
+    void setVolume(int volume);
     auto getId() const { return id; }
 
   private:

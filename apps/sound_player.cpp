@@ -73,6 +73,14 @@ void playSoundLoop(Sample *sample, CommandQueue *queue) {
         } else if (type == CommandType::LOOP_ON ||
                    type == CommandType::LOOP_OFF) {
             sample->setLoopMode(type == CommandType::LOOP_ON);
+        } else if (type == CommandType::VOLUME) {
+            auto arg = command.getArg();
+            if (!arg) {
+                std::cerr << "Volume command '" << command
+                          << "' got no valid arguments" << std::endl;
+                continue;
+            }
+            sample->setVolume(*arg);
         } else if (type == CommandType::EXIT) {
             break;
         }
@@ -102,20 +110,14 @@ void processCommand(const Command command, queue_map_t &queues) {
             }
         } else {
             // Only stop a single sound
-            int sample = *arg;
-            if (queues.contains(sample)) {
-                queues[sample].put(command);
+            int sample_id = *arg;
+            if (queues.contains(sample_id)) {
+                queues[sample_id].put(command);
             }
         }
-    } else if (type == CommandType::VOLUME) {
-        if (!arg) {
-            std::cerr << "Volume command got no valid arguments" << std::endl;
-            return;
-        }
-        std::cout << std::format("Volume command got argument: {}", *arg)
-                  << std::endl;
-    } else if (type == CommandType::LOOP_ON || type == CommandType::LOOP_OFF) {
-        // Set new loop state in all queues
+    } else if (type == CommandType::LOOP_ON || type == CommandType::LOOP_OFF ||
+               type == CommandType::VOLUME) {
+        // Set new volume or loop state in all queues
         for (auto &queue : std::views::values(queues)) {
             queue.put(command);
         }
@@ -132,9 +134,9 @@ void openQueues(queue_map_t &queues, const bank_map_t &bank) {
         queue.clear();
     }
     // Create an empty queue for each sample where none exist
-    for (const auto sample : std::views::keys(bank)) {
-        if (!queues.contains(sample)) {
-            queues[sample];
+    for (const auto sample_id : std::views::keys(bank)) {
+        if (!queues.contains(sample_id)) {
+            queues[sample_id];
         }
     }
 }
@@ -208,7 +210,8 @@ void startSoundPlayer(std::filesystem::path sampleDir, MIX_Mixer *mixer) {
     sample_vector_t samples = initSamples(mixer);
     bank_path_vector_t bankPaths = getBankPaths(sampleDir);
     bool loopMode = false;
-    auto bank = readBank(bankPaths[0]);
+    int currentBankIndex = 0;
+    auto bank = readBank(bankPaths[currentBankIndex]);
 
     // Open a thread and command queue for each sample in the bank
     openQueues(queues, bank);
@@ -237,16 +240,14 @@ void startSoundPlayer(std::filesystem::path sampleDir, MIX_Mixer *mixer) {
                 std::cerr << "Bank command got no arguments" << std::endl;
                 continue;
             }
-            size_t bankIndex = *arg - 1;
-            if (bankIndex >= bankPaths.size()) {
-                std::cerr << std::format(
-                                 "Bank command got invalid bank index: {}",
-                                 *arg)
-                          << std::endl;
+            int bankIndex = *arg - 1;
+            if (bankIndex < 0 || bankIndex >= numBanks ||
+                bankIndex == currentBankIndex) {
                 continue;
             }
+            currentBankIndex = bankIndex;
             exitThreads(threads, queues);
-            bank = readBank(bankPaths[bankIndex]);
+            bank = readBank(bankPaths[currentBankIndex]);
             openQueues(queues, bank);
             openThreads(threads, queues, bank, samples);
             processCommand(loopMode ? Command(CommandType::LOOP_ON)
