@@ -88,3 +88,15 @@ sudo smbpasswd -a soundplayer
 
 To manage wireless networks, the [wpa_cli](https://linux.die.net/man/8/wpa_cli)
 program can be used.
+
+## Test image
+
+A test image can be built and run in QEMU VM. The test image configuration is
+defined in `testvm.nix`. To build this VM, run the command:
+
+```sh
+nix-build '<nixpkgs/nixos>' -A vm -I nixpkgs=channel:nixos-26.05 -I nixos-config=./testvm.nix
+```
+
+The VM can be run using the `result/bin/run-dnd-soundboard-vm` script. The keyboard
+might show up as the `QEMU Virtio Keyboard` device.

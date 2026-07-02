@@ -75,7 +75,7 @@ in
     git
     htop
     killall
-    neofetch
+    fastfetch
     pciutils
     screen
     usbutils
