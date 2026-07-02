@@ -158,9 +158,10 @@ def read_keys(device: InputDevice) -> None:
                 break
 
 def main(args: Namespace) -> None:
+    device = None
     if args.device_file is not None:
         device = InputDevice(args.device_file)
-    else:
+    elif args.device_name is not None:
         device = get_device_by_name(args.device_name)
 
     if device is None:
@@ -189,7 +190,7 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '--device-name',
-        default='SEMICO GXT 860 Keyboard',
+        default=None,
         help='Part of the name of the input event file, will use first file' \
              'with name matching argument. This option is ignored if' \
              'device-file is set.'

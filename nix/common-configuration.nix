@@ -1,10 +1,10 @@
-{ pkgs, ...}:
+deviceName: { pkgs, ...}:
 let
   networkConfig = import ./network-config.nix;
   userName = "soundplayer";
   userDir = "/home/${userName}";
   sampleDir = "${userDir}/sampledir";
-  serviceConfig = import ./dnd-soundboard-service.nix userName sampleDir;
+  serviceConfig = import ./dnd-soundboard-service.nix userName sampleDir deviceName;
   sambaConfig = import ./sample-dir-network-disk.nix userName sampleDir;
 in
 {

@@ -1,7 +1,10 @@
 { lib, modulesPath, pkgs, ...}:
+let
+  commonConfig = import ./common-configuration.nix "QEMU Virtio Keyboard";
+in
 {
   imports = [
-    ./common-configuration.nix
+    commonConfig
   ];
 
   time.timeZone = "Europe/Oslo";

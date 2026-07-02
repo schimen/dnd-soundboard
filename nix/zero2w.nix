@@ -4,11 +4,12 @@ let
   networkConfig = import ./network-config.nix;
   paSink = "alsa_output.platform-soc_sound.stereo-fallback";
   paSource = "alsa_output.platform-soc_sound.stereo-fallback.monitor";
+  commonConfig = import ./common-configuration.nix "SEMICO GXT 860 Keyboard";
 in
 {
   imports = [
     ./sd-image.nix
-    ./common-configuration.nix
+    commonConfig
   ];
 
   # Some packages (ahci fail... this bypasses that) https://discourse.nixos.org/t/does-pkgs-linuxpackages-rpi3-build-all-required-kernel-modules/42509

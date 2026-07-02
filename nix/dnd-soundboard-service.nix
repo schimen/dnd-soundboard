@@ -1,4 +1,4 @@
-userName: sampleDir: { pkgs, ...}:
+userName: sampleDir: deviceName: { pkgs, ...}:
 let
   soundboard_package = pkgs.callPackage ./dnd-soundboard.nix {};
   fifoFile = "/tmp/sound_player.stdin";
@@ -31,7 +31,7 @@ in
       enable = true;
       serviceConfig = {
         Type = "simple";
-        ExecStart = "${soundboard_package}/bin/key_monitor.py";
+        ExecStart = "${soundboard_package}/bin/key_monitor.py --device-name \"${deviceName}\"";
         Restart = "always";
         RestartSec = "10";
         StandardOutput = "file:${fifoFile}";
