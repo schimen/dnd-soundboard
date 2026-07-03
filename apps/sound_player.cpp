@@ -8,6 +8,7 @@
 #include <iostream>
 #include <ranges>
 #include <regex>
+#include <sdbus-c++/sdbus-c++.h>
 #include <string>
 #include <thread>
 
@@ -20,6 +21,19 @@ using bank_path_vector_t = std::vector<std::filesystem::path>;
 constexpr int numSounds = 6;
 constexpr int numBanks = 4;
 static_assert(numBanks > 0, "There must be at least one bank");
+
+/**
+ * Send sdbus signal to shutdown the system
+ */
+void shutdownSystem() {
+    auto connection = sdbus::createSystemBusConnection();
+    auto proxy =
+        sdbus::createProxy("org.freedesktop.login1", "/org/freedesktop/login1");
+    auto method =
+        proxy->createMethodCall("org.freedesktop.login1.Manager", "PowerOff");
+    method << false;
+    proxy->callMethod(method);
+}
 
 /**
  * Read the bank directory and return the number of each existing sample and its
@@ -234,6 +248,12 @@ void startSoundPlayer(std::filesystem::path sampleDir, MIX_Mixer *mixer) {
                       << std::endl;
             exitThreads(threads, queues);
             queues.clear();
+            try {
+                shutdownSystem();
+            } catch (const sdbus::Error &exc) {
+                std::cerr << "D-Bus error while shutting down system: "
+                          << exc.what() << std::endl;
+            }
             break;
         } else if (type == CommandType::NEW_BANK) {
             if (!arg) {
