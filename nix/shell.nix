@@ -1,9 +1,7 @@
 { pkgs ? import <nixpkgs> {} }:
-let
-  soundboard_package = pkgs.callPackage ./dnd-soundboard.nix {};
-in
 pkgs.mkShell {
   nativeBuildInputs = with pkgs; [
+    # C++ dependencies
     argparse
     catch2_3
     clang-tools
@@ -14,5 +12,13 @@ pkgs.mkShell {
     sdbus-cpp
     sdl3
     sdl3-mixer
+
+    # Python dependencies
+    (python3.withPackages(ps: with ps; [
+      evdev
+      dbus-python
+      pysdl2
+    ]))
+    SDL2
   ];
 }

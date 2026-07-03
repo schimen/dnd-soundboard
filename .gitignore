@@ -1,4 +1,6 @@
 __pycache__
 samples/
 **/result/
+**/result
+**/*.qcow2
 build/

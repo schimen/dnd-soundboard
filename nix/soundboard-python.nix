@@ -1,7 +1,7 @@
 { pkgs, python3Packages }:
 
 python3Packages.buildPythonApplication rec {
-    pname = "dnd-soundboard";
+    pname = "soundboard-python";
     version = "0.1.0";
     pyproject = false;
 

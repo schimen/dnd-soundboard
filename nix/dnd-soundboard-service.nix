@@ -1,6 +1,6 @@
 userName: sampleDir: deviceName: { pkgs, ...}:
 let
-  soundboard_package = pkgs.callPackage ./dnd-soundboard.nix {};
+  soundboard_package = pkgs.callPackage ./soundboard-cpp.nix {};
   fifoFile = "/tmp/sound_player.stdin";
 in
 {
@@ -19,7 +19,7 @@ in
       serviceConfig = {
         Type = "simple";
         ExecStartPre = "${pkgs.bash}/bin/bash -c 'mkdir -p -m 0755 ${sampleDir}'";
-        ExecStart = "${soundboard_package}/bin/sound_player.py --sample-dir ${sampleDir}";
+        ExecStart = "${soundboard_package}/bin/sound_player --sample-dir ${sampleDir}";
         Restart = "always";
         RestartSec = "10";
         StandardInput = "socket";
@@ -31,7 +31,7 @@ in
       enable = true;
       serviceConfig = {
         Type = "simple";
-        ExecStart = "${soundboard_package}/bin/key_monitor.py --device-name \"${deviceName}\"";
+        ExecStart = "${soundboard_package}/bin/key_monitor --device-name \"${deviceName}\"";
         Restart = "always";
         RestartSec = "10";
         StandardOutput = "file:${fifoFile}";
