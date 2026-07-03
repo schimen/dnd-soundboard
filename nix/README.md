@@ -20,20 +20,33 @@ device should be accessible during the first boot.
 ## Build environment
 
 Nix is used to build the image, and for this to work Nix must be installed. Nix
-can be installed separately on a machine (see [Nix install page](https://nixos.org/download/)),
-or a NixOS machine can be used.
+can be installed separately on a machine (see
+[Nix install page](https://nixos.org/download/)), or a NixOS machine can be
+used.
 
-Flakes are used for building the image, see [flakes on NixOS wiki](https://nixos.wiki/wiki/flakes)
-for more information on how to enable and use this.
+Flakes are used for building the image, see
+[flakes on NixOS wiki](https://nixos.wiki/wiki/flakes) for more information on
+how to enable and use this.
 
-If the host computer compiling the image is not an arm machine, it is necessary to cross compile the image. The[NixOS_on_ARM](https://nixos.wiki/wiki/NixOS_on_ARM#Cross-compiling) entry on the NixOS wiki has a good explanation of how to enable cross compilation.
+If the host computer compiling the image is not an arm machine, it is necessary
+to cross compile the image. The
+[NixOS_on_ARM](https://nixos.wiki/wiki/NixOS_on_ARM#Cross-compiling) entry on
+the NixOS wiki has a good explanation of how to enable cross compilation.
 
 ## Build and install the image
 
-To build the image, run the following command:
+To cross compile the image from a x86 NixOS host machine, run the following
+command:
 
 ```sh
-nix build -L .#nixosConfigurations.zero2w.config.system.build.sdImage
+nix build -L .#nixosConfigurations.x86_64-linux.zero2w.config.system.build.sdImage
+```
+
+To build the image from a aarch64 NixOS host machine, run the following
+command:
+
+```sh
+nix build -L .#nixosConfigurations.aarch64-linux.zero2w.config.system.build.sdImage
 ```
 
 To install the image on a disk, the following command can be used:
@@ -65,7 +78,8 @@ run the command:
 ifconfig wlan0
 ```
 
-The local net can also be scanned for available units with the [arp-scan](https://github.com/royhills/arp-scan) program.
+The local net can also be scanned for available units with the
+[arp-scan](https://github.com/royhills/arp-scan) program.
 
 To access the device, SSH is enabled and it can be accessed with the
 soundplayer user:
@@ -91,7 +105,7 @@ program can be used.
 
 ## Test image
 
-A test image can be built and run in QEMU VM. The test image configuration is
+A test image can be built and run in QEMU **VM**. The test image configuration is
 defined in `testvm.nix`. To build this VM, run the command:
 
 ```sh
