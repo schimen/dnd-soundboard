@@ -63,11 +63,17 @@ in
 
   boot = {
     kernelPackages = pkgs.linuxPackages_rpi02w;
+    kernelParams = [ 
+      # Lower audio latency configuration
+      "threadirqs"
+      "preempt=full"  
+    ];
     initrd.availableKernelModules = ["xhci_pci" "usbhid" "usb_storage"];
     loader = {
       grub.enable = false;
       generic-extlinux-compatible.enable = true;
     };
+    zfs.forceImportRoot = false;
 
     # Avoids warning: mdadm: Neither MAILADDR nor PROGRAM has been set. This will cause the `mdmon` service to crash.
     # See: https://github.com/NixOS/nixpkgs/issues/254807
@@ -78,7 +84,7 @@ in
     interfaces."wlan0".useDHCP = true;
     wireless = {
       enable = true;
-      userControlled.enable = true;
+      userControlled = true;
       interfaces = ["wlan0"];
       networks = networkConfig.networks;
     };

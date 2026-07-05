@@ -29,13 +29,19 @@ in
       publish = {
         enable = true;
         addresses = true;
+        domain = true;
         workstation = true;
       };
       openFirewall = true;
     };
 
-    # Use pulseaudio for audio server
-    pulseaudio.enable = true;
+    # Use pipewire for audio server
+    pipewire = {
+      enable = true;
+      alsa.enable = true;
+      alsa.support32Bit = true;
+      pulse.enable = true;
+    };
 
     getty.autologinUser = userName;
   };
@@ -47,39 +53,39 @@ in
     openssh.authorizedKeys.keys = networkConfig.publicKeys;
   };
 
-  security.sudo = {
-    enable = true;
-    wheelNeedsPassword = false;
-  };
-  security.polkit = {
-    enable = true;
-    extraConfig = ''
-      polkit.addRule(function(action, subject) {
-        if (
-          subject.isInGroup("users")
-            && (
-              action.id == "org.freedesktop.login1.power-off" ||
-              action.id == "org.freedesktop.login1.power-off-multiple-sessions"
+  security = {
+    # rtkit for pipewire
+    rtkit.enable = true;
+
+    # Passwordless sudo
+    sudo = {
+      enable = true;
+      wheelNeedsPassword = false;
+    };
+
+    # Access to power off without password
+    polkit = {
+      enable = true;
+      extraConfig = ''
+        polkit.addRule(function(action, subject) {
+          if (
+            subject.isInGroup("users")
+              && (
+                action.id == "org.freedesktop.login1.power-off" ||
+                action.id == "org.freedesktop.login1.power-off-multiple-sessions"
+              )
             )
-          )
-        {
-          return polkit.Result.YES;
-        }
-      });
-    ''; 
+          {
+            return polkit.Result.YES;
+          }
+        });
+      ''; 
+    };
   };
 
   environment.systemPackages = with pkgs; [
-    # Normal packages
     alsa-utils
-    git
-    htop
-    killall
     fastfetch
-    pciutils
-    screen
-    usbutils
     vim
-    wget
   ];
 }
