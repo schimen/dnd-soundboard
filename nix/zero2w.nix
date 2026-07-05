@@ -23,7 +23,7 @@ in
   nixpkgs.hostPlatform = "aarch64-linux";
   # ! Need a trusted user for deploy-rs.
   nix.settings.trusted-users = ["@wheel"];
-  system.stateVersion = "25.05";
+  system.stateVersion = "26.05";
 
   zramSwap = {
     enable = true;

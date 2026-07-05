@@ -33,6 +33,27 @@ to cross compile the image. The
 [NixOS_on_ARM](https://nixos.wiki/wiki/NixOS_on_ARM#Cross-compiling) entry on
 the NixOS wiki has a good explanation of how to enable cross compilation.
 
+The host environment is specified when building the image, and this document
+assumes a `x86_64-linux` host platform. This must be changed when building
+on a host machine with another architecture, a host machine running NixOS ARM64
+architecture would use `aarch64-linux`.
+
+### Development shell
+
+To open a development shell for developing the C++ applications, run the
+command:
+
+```sh
+nix develop
+```
+
+To open a development shell for the python test-application, run the command:
+
+```sh
+nix develop -L .#packages.x86_64-linux.soundboard_python
+```
+
+
 ## Build and install the image
 
 To cross compile the image from a x86 NixOS host machine, run the following
@@ -40,13 +61,6 @@ command:
 
 ```sh
 nix build -L .#nixosConfigurations.x86_64-linux.zero2w.config.system.build.sdImage
-```
-
-To build the image from a aarch64 NixOS host machine, run the following
-command:
-
-```sh
-nix build -L .#nixosConfigurations.aarch64-linux.zero2w.config.system.build.sdImage
 ```
 
 To install the image on a disk, the following command can be used:
@@ -109,8 +123,7 @@ A test image can be built and run in QEMU **VM**. The test image configuration i
 defined in `testvm.nix`. To build this VM, run the command:
 
 ```sh
-nix-build '<nixpkgs/nixos>' -A vm -I nixpkgs=channel:nixos-26.05 -I nixos-config=./testvm.nix
+nix build -L .#nixosConfigurations.x86_64-linux.testvm.config.system.build.vm
 ```
 
-The VM can be run using the `result/bin/run-dnd-soundboard-vm` script. The keyboard
-might show up as the `QEMU Virtio Keyboard` device.
+The VM can be run using the `result/bin/run-dnd-soundboard-vm` script.

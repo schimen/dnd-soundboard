@@ -7,24 +7,31 @@
     deploy-rs.url = "github:serokell/deploy-rs";
   };
 
-  outputs = inputs: 
-   with inputs;
-      flake-utils.lib.eachDefaultSystem (system: let
-        pkgs = nixpkgs.legacyPackages."${system}";
-        crossPkgs = import "${nixpkgs}" { 
-          localSystem = system;
-          crossSystem = "aarch64-linux";
-        };
+  outputs = inputs: with inputs; flake-utils.lib.eachDefaultSystem (system:
+    let
+      pkgs = nixpkgs.legacyPackages."${system}";
+      crossPkgs = import "${nixpkgs}" { 
+        localSystem = system;
+        crossSystem = "aarch64-linux";
+      };
+      soundboard_cpp = pkgs.callPackage ./soundboard-cpp.nix {};
     in rec {
+      packages = {
+        default = soundboard_cpp;
+        soundboard_cpp = soundboard_cpp;
+        soundboard_python = pkgs.callPackage ./soundboard-python.nix {};
+      };
+
       nixosConfigurations = {
         zero2w = nixpkgs.lib.nixosSystem {
           modules = [
             "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
-            ./zero2w.nix
-            {
-              nixpkgs.pkgs = crossPkgs; # configure cross compilation. If the build system `system` is aarch64, this will provide the aarch64 nixpkgs
-            }
+            ./zero2w.nix { nixpkgs.pkgs = crossPkgs; }
           ];
+        };
+        testvm = nixpkgs.lib.nixosSystem {
+          system = system;
+          modules = [ ./testvm.nix ];
         };
       };
 

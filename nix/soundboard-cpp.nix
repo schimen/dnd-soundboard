@@ -7,4 +7,5 @@ stdenv.mkDerivation {
   buildInputs = with pkgs; [ argparse libevdev sdbus-cpp sdl3 sdl3-mixer ];
   src = ../.;
   cmakeBuildDir = "build-${stdenv.targetPlatform.system}";
+  doCheck = true;
 }
