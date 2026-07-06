@@ -48,11 +48,8 @@ in
   };
 
   hardware = {
-    bluetooth = {
-      enable = true;
-      powerOnBoot = true;
-    };
-
+    bluetooth.enable = false;
+    graphics.enable = false;
     enableRedistributableFirmware = lib.mkForce false;
     firmware = [ pkgs.raspberrypiWirelessFirmware ]; # Keep this to make sure wifi works
     deviceTree.filter = "bcm2837-rpi-zero*.dtb";
@@ -122,6 +119,11 @@ in
         ];
       };
     };
+
+    # Make sure services we don't need are disabled
+    xserver.enable = false;
+    speechd.enable = false;
+    libinput.enable = false;
   };
   environment.systemPackages = with pkgs; [
     libraspberrypi

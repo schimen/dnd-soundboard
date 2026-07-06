@@ -3,7 +3,6 @@ userName: sampleDir: { config, pkgs, ... }:
   services = {
     # Add Samba so that sample dir is browseable ofver network
     samba = {
-      package = pkgs.samba4Full;
       enable = true;
       openFirewall = true;
       settings = {

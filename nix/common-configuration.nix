@@ -88,4 +88,25 @@ in
     fastfetch
     vim
   ];
+
+  # Make pipewire and sdl3 smaller
+  nixpkgs.overlays = [
+    (final: super: {
+      pipewire = super.pipewire.override {
+        vulkanSupport = false;
+        bluezSupport = false;
+        x11Support = false;
+      };
+      sdl3 = super.sdl3.override {
+        drmSupport = false; 
+        jackSupport = false;
+        libdecorSupport = false;
+        openglSupport = false;
+        traySupport = false;
+        vulkanSupport = false;
+        waylandSupport = false;
+        x11Support = false;
+      };
+    })
+  ];
 }
