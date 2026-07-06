@@ -2,7 +2,10 @@
 let
   dtOverlays = import ./dt-overlays-zero2w.nix;
   networkConfig = import ./network-config.nix;
-  commonConfig = import ./common-configuration.nix "SEMICO GXT 860 Keyboard";
+  keyboardName = "SEMICO GXT 860 Keyboard";
+  sinkName = "alsa_output.platform-soc_sound.stereo-fallback";
+  sourceName = "alsa_output.platform-soc_sound.stereo-fallback.monitor";
+  commonConfig = import ./common-configuration.nix keyboardName sinkName sourceName;
 in
 {
   imports = [
@@ -96,30 +99,6 @@ in
   systemd.network.wait-online.timeout = 0;
 
   services = {
-    # Set pipewire sink
-    pipewire.wireplumber = {
-      enable = true;
-      extraConfig."99-voicehat-settings" = {
-        "monitor.alsa.rules" = [
-          {
-            matches = [
-              {
-                "node.nick" = "Google voiceHAT SoundCard HiFi voicehat-hifi-0";
-              }
-            ];
-            actions = {
-              update-props = {
-                "priority.driver" = 100;
-                "priority.session" = 100;
-                "device.routes.default-sink-volume" = 1.0;
-                "device.routes.default-source-volume" = 1.0;
-              };
-            };
-          }
-        ];
-      };
-    };
-
     # Make sure services we don't need are disabled
     xserver.enable = false;
     speechd.enable = false;

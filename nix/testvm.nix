@@ -1,6 +1,9 @@
 { lib, modulesPath, pkgs, ...}:
 let
-  commonConfig = import ./common-configuration.nix "QEMU Virtio Keyboard";
+  keyboardName = "QEMU Virtio Keyboard";
+  sinkName = "alsa_output.pci-0000_00_0a.0.analog-stereo";
+  sourceName = "alsa_input.pci-0000_00_0a.0.analog-stereo";
+  commonConfig = import ./common-configuration.nix keyboardName sinkName sourceName;
 in
 {
   imports = [

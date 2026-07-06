@@ -127,3 +127,10 @@ nix build -L .#nixosConfigurations.x86_64-linux.testvm.config.system.build.vm
 ```
 
 The VM can be run using the `result/bin/run-dnd-soundboard-vm` script.
+
+- The option `-nographic` can be added after the script to get shell access.
+- The variable `QEMU_NET_OPTS=hostfwd=tcp::5555-:22` can be set before the
+  command to gain access to SSH (over localhost, at port 5555).
+- The options
+  `-audiodev pipewire,id=audiodev1 -device ich9-intel-hda -device hda-duplex,audiodev=audiodev1`
+  can be added to send sound to the host machine if it has PipeWire running.

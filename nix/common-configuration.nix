@@ -1,4 +1,4 @@
-deviceName: { pkgs, ...}:
+deviceName: sinkName: sourceName: { pkgs, ...}:
 let
   networkConfig = import ./network-config.nix;
   userName = "soundplayer";
@@ -41,6 +41,39 @@ in
       alsa.enable = true;
       alsa.support32Bit = true;
       pulse.enable = true;
+      systemWide = true;
+      wireplumber = {
+        enable = true;
+        # Set priority of requested sink and source higher than other devices
+        extraConfig."default-sink-and-source" = {
+          "monitor.alsa.rules" = [ 
+            {
+              matches = [ { "node.name" = sinkName; } ];
+              actions = {
+                "update-props" = {
+                  "priority.driver" = 1234;
+                  "priority.session" = 1234;
+                };
+              };
+            } {
+              matches = [ { "node.name" = sourceName; } ];
+              actions = {
+                "update-props" = {
+                  "priority.driver" = 2345;
+                  "priority.session" = 2345;
+                };
+              };
+            }
+          ];
+        };
+        # Set default volume to 100% for both sink and source
+        extraConfig."default-volume" = {
+          "wireplumber.settings" = {
+              "device.routes.default-sink-volume" = 1.0;
+              "device.routes.default-source-volume" = 1.0;
+          };
+        };
+      };
     };
 
     getty.autologinUser = userName;
@@ -49,7 +82,7 @@ in
   users.users."${userName}" = {
     isNormalUser = true;
     home = userDir;
-    extraGroups = ["wheel" "dialout" "input"];
+    extraGroups = ["wheel" "dialout" "input" "pipewire"];
     openssh.authorizedKeys.keys = networkConfig.publicKeys;
   };
 
