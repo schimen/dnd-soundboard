@@ -2,8 +2,6 @@
 let
   dtOverlays = import ./dt-overlays-zero2w.nix;
   networkConfig = import ./network-config.nix;
-  paSink = "alsa_output.platform-soc_sound.stereo-fallback";
-  paSource = "alsa_output.platform-soc_sound.stereo-fallback.monitor";
   commonConfig = import ./common-configuration.nix "SEMICO GXT 860 Keyboard";
 in
 {
@@ -101,14 +99,29 @@ in
   systemd.network.wait-online.timeout = 0;
 
   services = {
-    # Set pulseaudio sink
-    pulseaudio.extraConfig = ''
-      load-module module-stream-restore restore_device=false
-      set-default-sink ${paSink}
-      set-default-source ${paSource}
-      set-sink-volume ${paSink} 100%
-      set-source-volume ${paSource} 100%
-    '';
+    # Set pipewire sink
+    pipewire.wireplumber = {
+      enable = true;
+      extraConfig."99-voicehat-settings" = {
+        "monitor.alsa.rules" = [
+          {
+            matches = [
+              {
+                "node.nick" = "Google voiceHAT SoundCard HiFi voicehat-hifi-0";
+              }
+            ];
+            actions = {
+              update-props = {
+                "priority.driver" = 100;
+                "priority.session" = 100;
+                "device.routes.default-sink-volume" = 1.0;
+                "device.routes.default-source-volume" = 1.0;
+              };
+            };
+          }
+        ];
+      };
+    };
   };
   environment.systemPackages = with pkgs; [
     libraspberrypi

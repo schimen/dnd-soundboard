@@ -119,7 +119,7 @@ program can be used.
 
 ## Test image
 
-A test image can be built and run in QEMU **VM**. The test image configuration is
+A test image can be built and run in QEMU VM. The test image configuration is
 defined in `testvm.nix`. To build this VM, run the command:
 
 ```sh
