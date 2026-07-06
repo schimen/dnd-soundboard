@@ -116,11 +116,7 @@ in
     };
   };
 
-  environment.systemPackages = with pkgs; [
-    alsa-utils
-    fastfetch
-    vim
-  ];
+  environment.systemPackages = [ pkgs.wpa_supplicant ];
 
   # Make pipewire and sdl3 smaller
   nixpkgs.overlays = [

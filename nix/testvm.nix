@@ -17,5 +17,7 @@ in
     keyMap = "no";
   };
 
+  environment.systemPackages = with pkgs; [ fastfetch vim wget ];
+
   system.stateVersion = "26.05";
 }

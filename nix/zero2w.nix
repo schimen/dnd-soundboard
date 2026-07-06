@@ -104,10 +104,4 @@ in
     speechd.enable = false;
     libinput.enable = false;
   };
-  environment.systemPackages = with pkgs; [
-    libraspberrypi
-    raspberrypifw
-    dtc
-    wpa_supplicant
-  ];
 }
